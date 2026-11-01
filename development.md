@@ -96,6 +96,21 @@ index layers (Postgres vectors + Meilisearch documents) after (re)installing
 with `cd backend && uv run python scripts/reindex_search.py`. Set
 `MEILISEARCH_ENABLED=false` to disable the engine entirely.
 
+## Company Roles and API Keys
+
+Every company has members with one of two roles: **admin** (manages members,
+API keys, deletions – the creator of a company is always its first admin) and
+**editor** (views, uploads, edits and approves that company's invoices).
+Admins invite co-workers by e-mail directly on the company row (an unknown
+address receives a set-password link) and can promote them to a second admin.
+Superusers see and manage every company; other users only see invoices and
+companies they belong to, plus their own uploads that are not classified yet.
+
+Each admin can issue **per-company API keys** for the Pohoda connector –
+such a key serves the export queue, files and result reporting of that single
+company only. The global `EXPORT_API_KEY` remains available as an
+all-companies key (and is required for `PUT /export/companies/sync`).
+
 ## Development-Only Features (`DEVELOP=yes`)
 
 Setting `DEVELOP=yes` in the `.env` file enables development conveniences,

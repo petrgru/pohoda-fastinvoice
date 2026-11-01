@@ -18,6 +18,7 @@ from app.core.config import settings
 from app.models import (
     AuditLog,
     Company,
+    CompanyApiKey,
     CompanyPublic,
     CompanySyncPayload,
     ExportBatch,
@@ -31,48 +32,74 @@ from app.models import (
     get_datetime_utc,
 )
 from app.services import companies as company_service
+from app.services import company_access, storage
 from app.services import invoices as invoice_service
-from app.services import storage
+
+router = APIRouter(prefix="/export", tags=["export"])
+
+GlobalOrCompany = UUID | None  # None = global key, UUID = scoped to that company
+
+
+def require_export_access(
+    session: SessionDep,
+    x_api_key: Annotated[str | None, Header()] = None,
+) -> GlobalOrCompany:
+    """Global EXPORT_API_KEY sees everything; a company key sees its company."""
+    global_enabled = bool(settings.EXPORT_API_KEY)
+    has_company_keys = (
+        session.exec(
+            select(CompanyApiKey.id).where(col(CompanyApiKey.revoked_at).is_(None))
+        ).first()
+        is not None
+    )
+    if not global_enabled and not has_company_keys:
+        raise HTTPException(
+            status_code=503,
+            detail="Export API je vypnuto (EXPORT_API_KEY ani klíče firem nenastaveny)",
+        )
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="Neplatný API klíč")
+    if global_enabled and secrets.compare_digest(x_api_key, settings.EXPORT_API_KEY):
+        return None
+    key = company_access.resolve_api_key(session, x_api_key)
+    if key is None:
+        raise HTTPException(status_code=401, detail="Neplatný API klíč")
+    return key.company_id
+
+
+def _assert_company_scope(
+    company_id: GlobalOrCompany, invoice_company_id: UUID | None
+) -> None:
+    if company_id is not None and invoice_company_id != company_id:
+        raise HTTPException(status_code=404, detail="Faktura nenalezena")
+
 
 router = APIRouter(prefix="/export", tags=["export"])
 
 
-def verify_export_api_key(
-    x_api_key: Annotated[str | None, Header()] = None,
-) -> None:
-    if not settings.EXPORT_API_KEY:
-        raise HTTPException(
-            status_code=503,
-            detail="Export API je vypnuto (EXPORT_API_KEY není nastaveno)",
-        )
-    if not x_api_key or not secrets.compare_digest(x_api_key, settings.EXPORT_API_KEY):
-        raise HTTPException(status_code=401, detail="Neplatný API klíč")
-
-
-router = APIRouter(
-    prefix="/export",
-    tags=["export"],
-    dependencies=[Depends(verify_export_api_key)],
-)
-
-
-def _exportable_invoices(session: Session) -> list[Invoice]:
-    return list(
-        session.exec(
-            select(Invoice)
-            .where(Invoice.state == InvoiceState.READY_FOR_EXPORT.value)
-            .where(col(Invoice.company_id).is_not(None))
-            .where(col(Invoice.approved_at).is_not(None))
-            .order_by(col(Invoice.approved_at).asc())
-        ).all()
+def _exportable_invoices(
+    session: Session, company_id: GlobalOrCompany = None
+) -> list[Invoice]:
+    query = (
+        select(Invoice)
+        .where(Invoice.state == InvoiceState.READY_FOR_EXPORT.value)
+        .where(col(Invoice.company_id).is_not(None))
+        .where(col(Invoice.approved_at).is_not(None))
+        .order_by(col(Invoice.approved_at).asc())
     )
+    if company_id is not None:
+        query = query.where(col(Invoice.company_id) == company_id)
+    return list(session.exec(query).all())
 
 
 @router.get("/queue", response_model=ExportQueuePublic)
-def get_export_queue(session: SessionDep) -> ExportQueuePublic:
+def get_export_queue(
+    session: SessionDep,
+    scope: Annotated[GlobalOrCompany, Depends(require_export_access)],
+) -> ExportQueuePublic:
     """Approved invoices ready to be imported into Pohoda."""
     items: list[ExportQueueItem] = []
-    for invoice in _exportable_invoices(session):
+    for invoice in _exportable_invoices(session, scope):
         company = (
             session.get(Company, invoice.company_id) if invoice.company_id else None
         )
@@ -102,10 +129,15 @@ def get_export_queue(session: SessionDep) -> ExportQueuePublic:
 
 
 @router.get("/invoices/{invoice_id}/file")
-def get_export_file(session: SessionDep, invoice_id: UUID) -> Response:
+def get_export_file(
+    session: SessionDep,
+    invoice_id: UUID,
+    scope: Annotated[GlobalOrCompany, Depends(require_export_access)],
+) -> Response:
     invoice = session.get(Invoice, invoice_id)
     if not invoice:
         raise HTTPException(status_code=404, detail="Faktura nenalezena")
+    _assert_company_scope(scope, invoice.company_id)
     if invoice.state not in (
         InvoiceState.READY_FOR_EXPORT.value,
         InvoiceState.EXPORTED.value,
@@ -119,11 +151,16 @@ def get_export_file(session: SessionDep, invoice_id: UUID) -> Response:
 
 
 @router.post("/result", response_model=Message)
-def report_export_result(session: SessionDep, result: ExportResult) -> Message:
+def report_export_result(
+    session: SessionDep,
+    result: ExportResult,
+    scope: Annotated[GlobalOrCompany, Depends(require_export_access)],
+) -> Message:
     """Connector reports the import outcome for one invoice (idempotent)."""
     invoice = session.get(Invoice, result.invoice_id)
     if not invoice:
         raise HTTPException(status_code=404, detail="Faktura nenalezena")
+    _assert_company_scope(scope, invoice.company_id)
 
     state = InvoiceState(invoice.state)
     if result.success:
@@ -179,8 +216,16 @@ def _ensure_batch(session: Session, batch_ref: str) -> ExportBatch:
 
 
 @router.put("/companies/sync", response_model=Message)
-def sync_companies(session: SessionDep, payload: CompanySyncPayload) -> Message:
+def sync_companies(
+    session: SessionDep,
+    payload: CompanySyncPayload,
+    scope: Annotated[GlobalOrCompany, Depends(require_export_access)],
+) -> Message:
     """Bulk upsert of partners from the Pohoda side (matched by IČO)."""
+    if scope is not None:
+        raise HTTPException(
+            status_code=403, detail="Sync firem vyžaduje globální API klíč"
+        )
     created = updated = unchanged = 0
     for item in payload.companies:
         existing = session.exec(select(Company).where(Company.ico == item.ico)).first()

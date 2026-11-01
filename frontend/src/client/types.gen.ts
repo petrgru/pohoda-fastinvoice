@@ -95,6 +95,82 @@ export type CompaniesPublic = {
 };
 
 /**
+ * CompanyApiKeyCreate
+ */
+export type CompanyApiKeyCreate = {
+    /**
+     * Label
+     */
+    label: string;
+};
+
+/**
+ * CompanyApiKeyCreated
+ *
+ * Same as the public view but carrying the plaintext key, shown once.
+ */
+export type CompanyApiKeyCreated = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Key Prefix
+     */
+    key_prefix: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Last Used At
+     */
+    last_used_at?: string | null;
+    /**
+     * Revoked At
+     */
+    revoked_at?: string | null;
+    /**
+     * Key
+     */
+    key: string;
+};
+
+/**
+ * CompanyApiKeyPublic
+ */
+export type CompanyApiKeyPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Key Prefix
+     */
+    key_prefix: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Last Used At
+     */
+    last_used_at?: string | null;
+    /**
+     * Revoked At
+     */
+    revoked_at?: string | null;
+};
+
+/**
  * CompanyAssign
  */
 export type CompanyAssign = {
@@ -194,6 +270,7 @@ export type CompanyPublic = {
      * Bank Accounts
      */
     bank_accounts?: Array<BankAccountPublic>;
+    my_role?: MembershipRole | null;
 };
 
 /**
@@ -525,6 +602,10 @@ export type InvoicePublic = {
     company_id?: string | null;
     company?: CompanyPublic | null;
     /**
+     * Uploaded By Id
+     */
+    uploaded_by_id?: string | null;
+    /**
      * Approved By Id
      */
     approved_by_id?: string | null;
@@ -700,6 +781,67 @@ export type InvoicesPublic = {
      * Count
      */
     count: number;
+};
+
+/**
+ * MembershipCreate
+ *
+ * Add a member by e-mail; an unknown address receives an invite e-mail.
+ */
+export type MembershipCreate = {
+    /**
+     * Email
+     */
+    email: string;
+    role?: MembershipRole;
+};
+
+/**
+ * MembershipPublic
+ */
+export type MembershipPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Full Name
+     */
+    full_name?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    role: MembershipRole;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+};
+
+/**
+ * MembershipRole
+ *
+ * Role of a user inside one company.
+ *
+ * ADMIN  – manages members, API keys and deletions of the company.
+ * EDITOR – views, uploads, edits and approves the company's invoices.
+ */
+export type MembershipRole = 'admin' | 'editor';
+
+/**
+ * MembershipUpdate
+ */
+export type MembershipUpdate = {
+    role: MembershipRole;
 };
 
 /**
@@ -1672,6 +1814,264 @@ export type companiesUpdateCompanyResponses = {
 };
 
 export type companiesUpdateCompanyResponse = companiesUpdateCompanyResponses[keyof companiesUpdateCompanyResponses];
+
+export type companiesListMembersData = {
+    body?: never;
+    path: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/{company_id}/members';
+};
+
+export type companiesListMembersErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesListMembersError = companiesListMembersErrors[keyof companiesListMembersErrors];
+
+export type companiesListMembersResponses = {
+    /**
+     * Response Companies-List Members
+     *
+     * Successful Response
+     */
+    200: Array<MembershipPublic>;
+};
+
+export type companiesListMembersResponse = companiesListMembersResponses[keyof companiesListMembersResponses];
+
+export type companiesAddMemberData = {
+    body: MembershipCreate;
+    path: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/{company_id}/members';
+};
+
+export type companiesAddMemberErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesAddMemberError = companiesAddMemberErrors[keyof companiesAddMemberErrors];
+
+export type companiesAddMemberResponses = {
+    /**
+     * Successful Response
+     */
+    201: MembershipPublic;
+};
+
+export type companiesAddMemberResponse = companiesAddMemberResponses[keyof companiesAddMemberResponses];
+
+export type companiesRemoveMemberData = {
+    body?: never;
+    path: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+        /**
+         * Membership Id
+         */
+        membership_id: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/{company_id}/members/{membership_id}';
+};
+
+export type companiesRemoveMemberErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesRemoveMemberError = companiesRemoveMemberErrors[keyof companiesRemoveMemberErrors];
+
+export type companiesRemoveMemberResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type companiesRemoveMemberResponse = companiesRemoveMemberResponses[keyof companiesRemoveMemberResponses];
+
+export type companiesUpdateMemberRoleData = {
+    body: MembershipUpdate;
+    path: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+        /**
+         * Membership Id
+         */
+        membership_id: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/{company_id}/members/{membership_id}';
+};
+
+export type companiesUpdateMemberRoleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesUpdateMemberRoleError = companiesUpdateMemberRoleErrors[keyof companiesUpdateMemberRoleErrors];
+
+export type companiesUpdateMemberRoleResponses = {
+    /**
+     * Successful Response
+     */
+    200: MembershipPublic;
+};
+
+export type companiesUpdateMemberRoleResponse = companiesUpdateMemberRoleResponses[keyof companiesUpdateMemberRoleResponses];
+
+export type companiesLookupUserByEmailData = {
+    body?: never;
+    path: {
+        /**
+         * Email
+         */
+        email: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/user-lookup/{email}';
+};
+
+export type companiesLookupUserByEmailErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesLookupUserByEmailError = companiesLookupUserByEmailErrors[keyof companiesLookupUserByEmailErrors];
+
+export type companiesLookupUserByEmailResponses = {
+    /**
+     * Response Companies-Lookup User By Email
+     *
+     * Successful Response
+     */
+    200: Array<MembershipPublic>;
+};
+
+export type companiesLookupUserByEmailResponse = companiesLookupUserByEmailResponses[keyof companiesLookupUserByEmailResponses];
+
+export type companiesListApiKeysData = {
+    body?: never;
+    path: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/{company_id}/api-keys';
+};
+
+export type companiesListApiKeysErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesListApiKeysError = companiesListApiKeysErrors[keyof companiesListApiKeysErrors];
+
+export type companiesListApiKeysResponses = {
+    /**
+     * Response Companies-List Api Keys
+     *
+     * Successful Response
+     */
+    200: Array<CompanyApiKeyPublic>;
+};
+
+export type companiesListApiKeysResponse = companiesListApiKeysResponses[keyof companiesListApiKeysResponses];
+
+export type companiesCreateApiKeyData = {
+    body: CompanyApiKeyCreate;
+    path: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/{company_id}/api-keys';
+};
+
+export type companiesCreateApiKeyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesCreateApiKeyError = companiesCreateApiKeyErrors[keyof companiesCreateApiKeyErrors];
+
+export type companiesCreateApiKeyResponses = {
+    /**
+     * Successful Response
+     */
+    201: CompanyApiKeyCreated;
+};
+
+export type companiesCreateApiKeyResponse = companiesCreateApiKeyResponses[keyof companiesCreateApiKeyResponses];
+
+export type companiesRevokeApiKeyData = {
+    body?: never;
+    path: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+        /**
+         * Key Id
+         */
+        key_id: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/{company_id}/api-keys/{key_id}';
+};
+
+export type companiesRevokeApiKeyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesRevokeApiKeyError = companiesRevokeApiKeyErrors[keyof companiesRevokeApiKeyErrors];
+
+export type companiesRevokeApiKeyResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type companiesRevokeApiKeyResponse = companiesRevokeApiKeyResponses[keyof companiesRevokeApiKeyResponses];
 
 export type invoicesUploadInvoiceData = {
     body: Body_invoices_upload_invoice;

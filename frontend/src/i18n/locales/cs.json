@@ -201,7 +201,12 @@
     "file_missing": "Soubor nenalezen",
     "vat_invalid": "DIČ nebylo nalezeno v registru VIES",
     "vat_service_unavailable": "Ověření DIČ je momentálně nedostupné",
-    "invoice_parsing": "Doklad se právě zpracovává – údaje bude možné upravit po dokončení parsování"
+    "invoice_parsing": "Doklad se právě zpracovává – údaje bude možné upravit po dokončení parsování",
+    "forbidden": "Na tuto akci nemáte dostatečná práva",
+    "member_exists": "Uživatel je již členem firmy",
+    "member_not_found": "Člen nenalezen",
+    "api_key_not_found": "Klíč nenalezen",
+    "last_company_admin": "Firma musí zůstat alespoň jedním správcem"
   },
   "login": {
     "title": "Přihlášení",
@@ -232,5 +237,30 @@
     "searchPlaceholder": "Číslo faktury, dodavatel, text z dokumentu…",
     "viewAll": "Zobrazit vše v seznamu",
     "noResults": "Nic nenalezeno."
+  },
+  "manage": {
+    "title": "Správa firmy",
+    "heading": "Správa – {{name}}",
+    "members": "Členové",
+    "addMember": "Přidat",
+    "emailPlaceholder": "e-mail uživatele",
+    "role": "Role",
+    "roleAdmin": "Správce",
+    "roleEditor": "Přidávání faktur",
+    "memberAdded": "Člen přidán",
+    "memberRemoved": "Člen odstraněn",
+    "saved": "Uloženo",
+    "inactive": "neaktivní účet",
+    "keys": "API klíče",
+    "keysHint": "Každý klíč zpřístupní exportní API pouze pro tuto firmu.",
+    "keyLabelPlaceholder": "Název klíče (např. Pohoda)",
+    "createKey": "Vytvořit klíč",
+    "copy": "Kopírovat",
+    "copied": "Klíč zkopírován",
+    "revoke": "Zrušit",
+    "revoked": "Zrušeno",
+    "lastUsed": "Použito",
+    "neverUsed": "zatím nepoužito",
+    "keyRevoked": "Klíč zrušen"
   }
 }

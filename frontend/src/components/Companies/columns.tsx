@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import DeleteCompany from "./DeleteCompany"
 import EditCompany from "./EditCompany"
+import { ManageCompany } from "./ManageCompany"
 
 export function useCompanyColumns() {
   const { t } = useTranslation()
@@ -80,26 +81,30 @@ export function useCompanyColumns() {
       {
         id: "actions",
         header: () => <span className="sr-only">{t("common.actions")}</span>,
-        cell: ({ row }) => (
-          <div className="flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="size-8 text-muted-foreground"
-                  data-testid={`company-actions-menu-${row.original.id}`}
-                >
-                  <span className="sr-only">{t("common.openActionsMenu")}</span>
-                  ⋮
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-40">
-                <EditCompany company={row.original} onSuccess={() => {}} />
-                <DeleteCompany company={row.original} onSuccess={() => {}} />
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ),
+        cell: ({ row }) =>
+          row.original.my_role === "admin" ? (
+            <div className="flex justify-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="size-8 text-muted-foreground"
+                    data-testid={`company-actions-menu-${row.original.id}`}
+                  >
+                    <span className="sr-only">
+                      {t("common.openActionsMenu")}
+                    </span>
+                    ⋮
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-40">
+                  <ManageCompany company={row.original} />
+                  <EditCompany company={row.original} onSuccess={() => {}} />
+                  <DeleteCompany company={row.original} onSuccess={() => {}} />
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : null,
       },
     ],
     [t],

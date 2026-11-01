@@ -201,7 +201,12 @@
     "file_missing": "File not found",
     "vat_invalid": "VAT ID not found in the VIES registry",
     "vat_service_unavailable": "VAT verification is currently unavailable",
-    "invoice_parsing": "The document is still being parsed – fields unlock once parsing finishes"
+    "invoice_parsing": "The document is still being parsed – fields unlock once parsing finishes",
+    "forbidden": "You do not have permission for this action",
+    "member_exists": "The user is already a member of the company",
+    "member_not_found": "Member not found",
+    "api_key_not_found": "Key not found",
+    "last_company_admin": "The company must keep at least one administrator"
   },
   "login": {
     "title": "Log in",
@@ -232,5 +237,30 @@
     "searchPlaceholder": "Invoice number, supplier, document text…",
     "viewAll": "View all in the list",
     "noResults": "Nothing found."
+  },
+  "manage": {
+    "title": "Company management",
+    "heading": "Manage – {{name}}",
+    "members": "Members",
+    "addMember": "Add",
+    "emailPlaceholder": "user e-mail",
+    "role": "Role",
+    "roleAdmin": "Administrator",
+    "roleEditor": "Invoice adder",
+    "memberAdded": "Member added",
+    "memberRemoved": "Member removed",
+    "saved": "Saved",
+    "inactive": "inactive account",
+    "keys": "API keys",
+    "keysHint": "Each key exposes the export API for this company only.",
+    "keyLabelPlaceholder": "Key name (e.g. Pohoda)",
+    "createKey": "Create key",
+    "copy": "Copy",
+    "copied": "Key copied",
+    "revoke": "Revoke",
+    "revoked": "Revoked",
+    "lastUsed": "Used",
+    "neverUsed": "not used yet",
+    "keyRevoked": "Key revoked"
   }
 }

@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import EmailStr, field_validator
-from sqlalchemy import JSON, Column, Index, Text
+from sqlalchemy import JSON, Column, Index, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -96,6 +96,17 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+class MembershipRole(str, enum.Enum):  # noqa: UP042 - str mixin for DB values
+    """Role of a user inside one company.
+
+    ADMIN  – manages members, API keys and deletions of the company.
+    EDITOR – views, uploads, edits and approves the company's invoices.
+    """
+
+    ADMIN = "admin"
+    EDITOR = "editor"
 
 
 # ---------------------------------------------------------------------------
@@ -356,11 +367,89 @@ class CompanyPublic(CompanyBase):
     updated_at: datetime | None = None
     source: str = "manual"
     bank_accounts: list[BankAccountPublic] = []
+    my_role: MembershipRole | None = None  # current user's role in this company
 
 
 class CompaniesPublic(SQLModel):
     data: list[CompanyPublic]
     count: int
+
+
+# ---------------------------------------------------------------------------
+# Company membership and per-company API keys
+# ---------------------------------------------------------------------------
+
+
+class CompanyMembership(SQLModel, table=True):
+    """A user's role in one company; superusers are implicitly admin everywhere."""
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    company_id: uuid.UUID = Field(
+        foreign_key="company.id", ondelete="CASCADE", index=True
+    )
+    role: str = Field(default=MembershipRole.EDITOR.value, max_length=16)
+    created_at: datetime | None = Field(default_factory=get_datetime_utc)
+
+    __table_args__ = (UniqueConstraint("user_id", "company_id"),)
+
+
+class MembershipCreate(SQLModel):
+    """Add a member by e-mail; an unknown address receives an invite e-mail."""
+
+    email: EmailStr
+    role: MembershipRole = MembershipRole.EDITOR
+
+
+class MembershipUpdate(SQLModel):
+    role: MembershipRole
+
+
+class MembershipPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    email: EmailStr
+    full_name: str | None = None
+    is_active: bool = True
+    role: MembershipRole
+    created_at: datetime | None = None
+
+
+class CompanyApiKey(SQLModel, table=True):
+    """API key granting the Pohoda connector access to ONE company's export."""
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    company_id: uuid.UUID = Field(
+        foreign_key="company.id", ondelete="CASCADE", index=True
+    )
+    label: str = Field(max_length=64)
+    key_prefix: str = Field(max_length=16)  # first chars, shown in listings
+    key_hash: str = Field(max_length=64, unique=True, index=True)  # sha256 hex
+    created_by_id: uuid.UUID | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+    created_at: datetime | None = Field(default_factory=get_datetime_utc)
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
+
+
+class CompanyApiKeyCreate(SQLModel):
+    label: str = Field(min_length=1, max_length=64)
+
+
+class CompanyApiKeyPublic(SQLModel):
+    id: uuid.UUID
+    label: str
+    key_prefix: str
+    created_at: datetime | None = None
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
+
+
+class CompanyApiKeyCreated(CompanyApiKeyPublic):
+    """Same as the public view but carrying the plaintext key, shown once."""
+
+    key: str
 
 
 # ---------------------------------------------------------------------------
@@ -588,6 +677,9 @@ class Invoice(SQLModel, table=True):
         default=None, foreign_key="company.id", index=True, ondelete="SET NULL"
     )
     company: Company | None = Relationship(back_populates="invoices")
+    uploaded_by_id: uuid.UUID | None = Field(
+        default=None, foreign_key="user.id", index=True, ondelete="SET NULL"
+    )
     approved_by_id: uuid.UUID | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL"
     )
@@ -654,6 +746,7 @@ class InvoicePublic(SQLModel):
     vat_rate_warnings: list[str] = []
     company_id: uuid.UUID | None = None
     company: CompanyPublic | None = None
+    uploaded_by_id: uuid.UUID | None = None
     approved_by_id: uuid.UUID | None = None
     approved_at: datetime | None = None
     exported_at: datetime | None = None

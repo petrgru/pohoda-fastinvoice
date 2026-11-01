@@ -102,6 +102,24 @@ def generate_new_account_email(
     return EmailData(html_content=html_content, subject=subject)
 
 
+def generate_company_invite_email(email_to: str, email: str, token: str) -> EmailData:
+    """Invitation to join the app: the link opens the set-password page."""
+    project_name = settings.PROJECT_NAME
+    subject = f"{project_name} - Pozvánka do FastInvoice"
+    link = f"{settings.FRONTEND_HOST}/reset-password?token={token}"
+    html_content = render_email_template(
+        template_name="reset_password.html",
+        context={
+            "project_name": project_name,
+            "username": email,
+            "email": email_to,
+            "valid_hours": settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS,
+            "link": link,
+        },
+    )
+    return EmailData(html_content=html_content, subject=subject)
+
+
 def generate_password_reset_token(email: str) -> str:
     delta = timedelta(hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS)
     now = datetime.now(UTC)

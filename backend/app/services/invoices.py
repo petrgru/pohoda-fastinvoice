@@ -149,9 +149,22 @@ _STAT_RANGES = {  # date_trunc unit -> (periods to return, days to look back)
 }
 
 
-def stats(session: Session) -> InvoiceStats:
-    """Invoice counts per day/week/month and by state for the dashboard."""
+def stats(
+    session: Session,
+    visible_company_ids: list[uuid.UUID] | None = None,
+    user_id: uuid.UUID | None = None,
+) -> InvoiceStats:
+    """Invoice counts per day/week/month and by state for the dashboard.
+
+    ``visible_company_ids=None`` counts everything (superuser); otherwise only
+    rows of those companies plus the given user's own unassigned uploads.
+    """
     result = InvoiceStats()
+    scope = ""
+    scope_params: dict[str, Any] = {}
+    if visible_company_ids is not None:
+        scope = " AND (company_id = ANY(:visible_ids) OR uploaded_by_id = :scope_user)"
+        scope_params = {"visible_ids": visible_company_ids, "scope_user": user_id}
     today = get_datetime_utc().date()
     for unit, (periods, back) in _STAT_RANGES.items():
         since = today - timedelta(days=back)
@@ -163,9 +176,9 @@ def stats(session: Session) -> InvoiceStats:
                     " (created_at AT TIME ZONE 'UTC')::date)) AS period, state,"
                     " count(*) AS n FROM invoice"
                     " WHERE coalesce(issue_date, (created_at AT TIME ZONE 'UTC')::date)"
-                    " >= :since GROUP BY 1, 2"
+                    f" >= :since{scope} GROUP BY 1, 2"
                 ),
-                {"since": since},
+                {"since": since, **scope_params},
             )
             .all()
         )
@@ -196,7 +209,12 @@ def stats(session: Session) -> InvoiceStats:
         setattr(result, unit, list(reversed(buckets)))
     totals = (
         session.connection()
-        .execute(sa_text("SELECT state, count(*) FROM invoice GROUP BY state"))
+        .execute(
+            sa_text(
+                f"SELECT state, count(*) FROM invoice WHERE 1=1{scope} GROUP BY state"  # noqa: S608 - scope is built above from UUIDs
+            ),
+            scope_params,
+        )
         .all()
     )
     result.totals = InvoiceStateCounts(**{str(state): int(n) for state, n in totals})

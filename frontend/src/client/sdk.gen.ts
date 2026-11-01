@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { companiesCreateCompanyData, companiesCreateCompanyErrors, companiesCreateCompanyResponses, companiesDeleteCompanyData, companiesDeleteCompanyErrors, companiesDeleteCompanyResponses, companiesGetCompanyData, companiesGetCompanyErrors, companiesGetCompanyResponses, companiesGetVatInfoData, companiesGetVatInfoErrors, companiesGetVatInfoResponses, companiesListCompaniesData, companiesListCompaniesErrors, companiesListCompaniesResponses, companiesUpdateCompanyData, companiesUpdateCompanyErrors, companiesUpdateCompanyResponses, exportGetExportFileData, exportGetExportFileErrors, exportGetExportFileResponses, exportGetExportQueueData, exportGetExportQueueErrors, exportGetExportQueueResponses, exportReportExportResultData, exportReportExportResultErrors, exportReportExportResultResponses, exportSyncCompaniesData, exportSyncCompaniesErrors, exportSyncCompaniesResponses, invoicesApproveInvoiceData, invoicesApproveInvoiceErrors, invoicesApproveInvoiceResponses, invoicesAssignCompanyData, invoicesAssignCompanyErrors, invoicesAssignCompanyResponses, invoicesCreateCompanyForInvoiceData, invoicesCreateCompanyForInvoiceErrors, invoicesCreateCompanyForInvoiceResponses, invoicesDeleteInvoiceData, invoicesDeleteInvoiceErrors, invoicesDeleteInvoiceResponses, invoicesGetInvoiceData, invoicesGetInvoiceErrors, invoicesGetInvoiceFileData, invoicesGetInvoiceFileErrors, invoicesGetInvoiceFileResponses, invoicesGetInvoiceResponses, invoicesInvoiceStatsData, invoicesInvoiceStatsResponses, invoicesListInvoicesData, invoicesListInvoicesErrors, invoicesListInvoicesResponses, invoicesListQueueData, invoicesListQueueErrors, invoicesListQueueResponses, invoicesReparseInvoiceData, invoicesReparseInvoiceErrors, invoicesReparseInvoiceResponses, invoicesUnapproveInvoiceData, invoicesUnapproveInvoiceErrors, invoicesUnapproveInvoiceResponses, invoicesUpdateInvoiceData, invoicesUpdateInvoiceErrors, invoicesUpdateInvoiceResponses, invoicesUploadInvoiceData, invoicesUploadInvoiceErrors, invoicesUploadInvoiceResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsRuntimeConfigData, utilsRuntimeConfigResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
+import type { companiesAddMemberData, companiesAddMemberErrors, companiesAddMemberResponses, companiesCreateApiKeyData, companiesCreateApiKeyErrors, companiesCreateApiKeyResponses, companiesCreateCompanyData, companiesCreateCompanyErrors, companiesCreateCompanyResponses, companiesDeleteCompanyData, companiesDeleteCompanyErrors, companiesDeleteCompanyResponses, companiesGetCompanyData, companiesGetCompanyErrors, companiesGetCompanyResponses, companiesGetVatInfoData, companiesGetVatInfoErrors, companiesGetVatInfoResponses, companiesListApiKeysData, companiesListApiKeysErrors, companiesListApiKeysResponses, companiesListCompaniesData, companiesListCompaniesErrors, companiesListCompaniesResponses, companiesListMembersData, companiesListMembersErrors, companiesListMembersResponses, companiesLookupUserByEmailData, companiesLookupUserByEmailErrors, companiesLookupUserByEmailResponses, companiesRemoveMemberData, companiesRemoveMemberErrors, companiesRemoveMemberResponses, companiesRevokeApiKeyData, companiesRevokeApiKeyErrors, companiesRevokeApiKeyResponses, companiesUpdateCompanyData, companiesUpdateCompanyErrors, companiesUpdateCompanyResponses, companiesUpdateMemberRoleData, companiesUpdateMemberRoleErrors, companiesUpdateMemberRoleResponses, exportGetExportFileData, exportGetExportFileErrors, exportGetExportFileResponses, exportGetExportQueueData, exportGetExportQueueErrors, exportGetExportQueueResponses, exportReportExportResultData, exportReportExportResultErrors, exportReportExportResultResponses, exportSyncCompaniesData, exportSyncCompaniesErrors, exportSyncCompaniesResponses, invoicesApproveInvoiceData, invoicesApproveInvoiceErrors, invoicesApproveInvoiceResponses, invoicesAssignCompanyData, invoicesAssignCompanyErrors, invoicesAssignCompanyResponses, invoicesCreateCompanyForInvoiceData, invoicesCreateCompanyForInvoiceErrors, invoicesCreateCompanyForInvoiceResponses, invoicesDeleteInvoiceData, invoicesDeleteInvoiceErrors, invoicesDeleteInvoiceResponses, invoicesGetInvoiceData, invoicesGetInvoiceErrors, invoicesGetInvoiceFileData, invoicesGetInvoiceFileErrors, invoicesGetInvoiceFileResponses, invoicesGetInvoiceResponses, invoicesInvoiceStatsData, invoicesInvoiceStatsResponses, invoicesListInvoicesData, invoicesListInvoicesErrors, invoicesListInvoicesResponses, invoicesListQueueData, invoicesListQueueErrors, invoicesListQueueResponses, invoicesReparseInvoiceData, invoicesReparseInvoiceErrors, invoicesReparseInvoiceResponses, invoicesUnapproveInvoiceData, invoicesUnapproveInvoiceErrors, invoicesUnapproveInvoiceResponses, invoicesUpdateInvoiceData, invoicesUpdateInvoiceErrors, invoicesUpdateInvoiceResponses, invoicesUploadInvoiceData, invoicesUploadInvoiceErrors, invoicesUploadInvoiceResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsRuntimeConfigData, utilsRuntimeConfigResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -376,6 +376,118 @@ export class CompaniesService {
                 'Content-Type': 'application/json',
                 ...options.headers
             }
+        });
+    }
+    
+    /**
+     * List Members
+     */
+    public static listMembers<ThrowOnError extends boolean = true>(options: Options<companiesListMembersData, ThrowOnError>) {
+        return (options.client ?? client).get<companiesListMembersResponses, companiesListMembersErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/companies/{company_id}/members',
+            ...options
+        });
+    }
+    
+    /**
+     * Add Member
+     *
+     * Add an existing user by e-mail; an unknown address is invited by e-mail.
+     */
+    public static addMember<ThrowOnError extends boolean = true>(options: Options<companiesAddMemberData, ThrowOnError>) {
+        return (options.client ?? client).post<companiesAddMemberResponses, companiesAddMemberErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/companies/{company_id}/members',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Remove Member
+     */
+    public static removeMember<ThrowOnError extends boolean = true>(options: Options<companiesRemoveMemberData, ThrowOnError>) {
+        return (options.client ?? client).delete<companiesRemoveMemberResponses, companiesRemoveMemberErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/companies/{company_id}/members/{membership_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Member Role
+     */
+    public static updateMemberRole<ThrowOnError extends boolean = true>(options: Options<companiesUpdateMemberRoleData, ThrowOnError>) {
+        return (options.client ?? client).patch<companiesUpdateMemberRoleResponses, companiesUpdateMemberRoleErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/companies/{company_id}/members/{membership_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Lookup User By Email
+     *
+     * Match user accounts by e-mail fragment for the member picker.
+     */
+    public static lookupUserByEmail<ThrowOnError extends boolean = true>(options: Options<companiesLookupUserByEmailData, ThrowOnError>) {
+        return (options.client ?? client).get<companiesLookupUserByEmailResponses, companiesLookupUserByEmailErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/companies/user-lookup/{email}',
+            ...options
+        });
+    }
+    
+    /**
+     * List Api Keys
+     */
+    public static listApiKeys<ThrowOnError extends boolean = true>(options: Options<companiesListApiKeysData, ThrowOnError>) {
+        return (options.client ?? client).get<companiesListApiKeysResponses, companiesListApiKeysErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/companies/{company_id}/api-keys',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Api Key
+     */
+    public static createApiKey<ThrowOnError extends boolean = true>(options: Options<companiesCreateApiKeyData, ThrowOnError>) {
+        return (options.client ?? client).post<companiesCreateApiKeyResponses, companiesCreateApiKeyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/companies/{company_id}/api-keys',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Revoke Api Key
+     */
+    public static revokeApiKey<ThrowOnError extends boolean = true>(options: Options<companiesRevokeApiKeyData, ThrowOnError>) {
+        return (options.client ?? client).delete<companiesRevokeApiKeyResponses, companiesRevokeApiKeyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/companies/{company_id}/api-keys/{key_id}',
+            ...options
         });
     }
 }

@@ -18,12 +18,13 @@ from app.models import (
     InvoiceState,
     InvoiceStats,
     InvoiceUpdate,
+    MembershipRole,
     Message,
     get_datetime_utc,
 )
 from app.services import companies as company_service
+from app.services import company_access, search_index, storage
 from app.services import invoices as invoice_service
-from app.services import search_index, storage
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -35,10 +36,18 @@ QUEUE_STATES = [
 ]
 
 
-def _get_invoice(session: SessionDep, invoice_id: UUID) -> Invoice:
+def _get_invoice(
+    session: SessionDep,
+    invoice_id: UUID,
+    *,
+    user=None,  # noqa: ANN001
+    min_role: MembershipRole = MembershipRole.EDITOR,
+) -> Invoice:
     invoice = session.get(Invoice, invoice_id)
     if not invoice:
         raise HTTPException(status_code=404, detail="errors.invoice_not_found")
+    if user is not None:
+        company_access.ensure_invoice_access(session, user, invoice, min_role)
     return invoice
 
 
@@ -98,6 +107,7 @@ async def upload_invoice(
         storage_key=storage_key,
         content_type=file.content_type or "application/octet-stream",
         file_size=len(data),
+        uploaded_by_id=current_user.id,
         file_hash=file_hash,
     )
     session.add(invoice)
@@ -119,7 +129,7 @@ async def upload_invoice(
 def list_invoices(
     *,
     session: SessionDep,
-    current_user: CurrentUser,  # noqa: ARG001
+    current_user: CurrentUser,
     skip: int = 0,
     limit: int = 20,
     state: str | None = None,
@@ -130,7 +140,10 @@ def list_invoices(
     if state:
         conditions.append(col(Invoice.state) == state)
     if company_id:
+        company_access.ensure_company_selectable(session, current_user, company_id)
         conditions.append(col(Invoice.company_id) == company_id)
+    if (visible := company_access.invoice_filter(session, current_user)) is not None:
+        conditions.append(visible)
     if q and settings.MEILISEARCH_ENABLED:
         # relevance-ranked hits from Meilisearch; Postgres filters out any
         # documents the mirror has not caught up with yet. When the mirror
@@ -189,19 +202,20 @@ def list_invoices(
 def list_queue(
     *,
     session: SessionDep,
-    current_user: CurrentUser,  # noqa: ARG001
+    current_user: CurrentUser,
     skip: int = 0,
     limit: int = 50,
 ) -> InvoicesPublic:
     """Invoices still waiting in the task queue (not yet imported)."""
+    conditions: list[ColumnElement[bool]] = [col(Invoice.state).in_(QUEUE_STATES)]
+    if (visible := company_access.invoice_filter(session, current_user)) is not None:
+        conditions.append(visible)
     count = session.exec(
-        select(func.count())
-        .select_from(Invoice)
-        .where(col(Invoice.state).in_(QUEUE_STATES))
+        select(func.count()).select_from(Invoice).where(and_(*conditions))
     ).one()
     items = session.exec(
         select(Invoice)
-        .where(col(Invoice.state).in_(QUEUE_STATES))
+        .where(and_(*conditions))
         .order_by(col(Invoice.created_at).asc())
         .offset(skip)
         .limit(limit)
@@ -215,30 +229,36 @@ def list_queue(
 def invoice_stats(
     *,
     session: SessionDep,
-    current_user: CurrentUser,  # noqa: ARG001
+    current_user: CurrentUser,
 ) -> InvoiceStats:
     """Aggregated counts for the dashboard (Plocha) chart and cards."""
-    return invoice_service.stats(session)
+    return invoice_service.stats(
+        session,
+        company_access.member_company_ids(session, current_user),
+        current_user.id,
+    )
 
 
 @router.get("/{invoice_id}", response_model=InvoicePublic)
 def get_invoice(
     *,
     session: SessionDep,
-    current_user: CurrentUser,  # noqa: ARG001
+    current_user: CurrentUser,
     invoice_id: UUID,
 ) -> InvoicePublic:
-    return invoice_service.to_public(session, _get_invoice(session, invoice_id))
+    return invoice_service.to_public(
+        session, _get_invoice(session, invoice_id, user=current_user)
+    )
 
 
 @router.get("/{invoice_id}/file")
 def get_invoice_file(
     *,
     session: SessionDep,
-    current_user: CurrentUser,  # noqa: ARG001
+    current_user: CurrentUser,
     invoice_id: UUID,
 ) -> object:
-    invoice = _get_invoice(session, invoice_id)
+    invoice = _get_invoice(session, invoice_id, user=current_user)
 
     try:
         data = storage.get_storage().open(invoice.storage_key)
@@ -261,10 +281,14 @@ def update_invoice(
     invoice_id: UUID,
     invoice_in: InvoiceUpdate,
 ) -> InvoicePublic:
-    invoice = _get_invoice(session, invoice_id)
+    invoice = _get_invoice(session, invoice_id, user=current_user)
     _assert_mutable(invoice)
     _assert_parsed(invoice)
     changes = invoice_in.model_dump(exclude_unset=True)
+    if changes.get("company_id"):
+        company_access.ensure_company_selectable(
+            session, current_user, changes["company_id"]
+        )
     for field, value in changes.items():
         setattr(invoice, field, value)
     invoice_service.recompute_derived(invoice)
@@ -291,9 +315,12 @@ def assign_company(
     invoice_id: UUID,
     company_in: CompanyAssign,
 ) -> InvoicePublic:
-    invoice = _get_invoice(session, invoice_id)
+    invoice = _get_invoice(session, invoice_id, user=current_user)
     _assert_mutable(invoice)
     _assert_parsed(invoice)
+    company_access.ensure_company_selectable(
+        session, current_user, company_in.company_id
+    )
     company = session.get(Company, company_in.company_id)
     if not company:
         raise HTTPException(status_code=404, detail="errors.company_not_found")
@@ -319,7 +346,7 @@ def create_company_for_invoice(
     The user confirms the pre-filled values in the UI before this is called;
     an existing IČO aborts with 409 so the company list stays authoritative.
     """
-    invoice = _get_invoice(session, invoice_id)
+    invoice = _get_invoice(session, invoice_id, user=current_user)
     _assert_mutable(invoice)
     _assert_parsed(invoice)
     companies_route.assert_dic_valid(company_in.dic)
@@ -331,6 +358,8 @@ def create_company_for_invoice(
     company = Company.model_validate(company_in.model_dump(exclude={"bank_accounts"}))
     session.add(company)
     session.flush()  # persist before the audit rows reference it
+    # whoever creates the company through an invoice becomes its first admin
+    company_access.add_admin_member(session, current_user, company)
     company_service.apply_bank_accounts(session, company, company_in.bank_accounts)
     invoice_service.assign_company(session, invoice, company, user=current_user)
     session.commit()
@@ -344,7 +373,7 @@ def approve_invoice(
     *, session: SessionDep, current_user: CurrentUser, invoice_id: UUID
 ) -> InvoicePublic:
     """Confirm the import: switches the invoice into the export queue."""
-    invoice = _get_invoice(session, invoice_id)
+    invoice = _get_invoice(session, invoice_id, user=current_user)
     _assert_mutable(invoice)
     try:
         invoice_service.approve(session, invoice, user=current_user)
@@ -359,7 +388,7 @@ def approve_invoice(
 def unapprove_invoice(
     *, session: SessionDep, current_user: CurrentUser, invoice_id: UUID
 ) -> InvoicePublic:
-    invoice = _get_invoice(session, invoice_id)
+    invoice = _get_invoice(session, invoice_id, user=current_user)
     try:
         invoice_service.revoke_approval(session, invoice, user=current_user)
     except invoice_service.InvoiceLockedError as exc:
@@ -377,7 +406,7 @@ def reparse_invoice(
     background_tasks: BackgroundTasks,
     invoice_id: UUID,
 ) -> InvoicePublic:
-    invoice = _get_invoice(session, invoice_id)
+    invoice = _get_invoice(session, invoice_id, user=current_user)
     _assert_mutable(invoice)
     try:
         invoice_service.reparse(session, invoice)
@@ -393,7 +422,9 @@ def delete_invoice(
     *, session: SessionDep, current_user: CurrentUser, invoice_id: UUID
 ) -> Message:
     """Delete an invoice; impossible once it was imported into the system."""
-    invoice = _get_invoice(session, invoice_id)
+    invoice = _get_invoice(
+        session, invoice_id, user=current_user, min_role=MembershipRole.ADMIN
+    )
     try:
         invoice_service.delete_invoice(session, invoice, user=current_user)
     except invoice_service.InvoiceLockedError as exc:

@@ -201,7 +201,12 @@
     "file_missing": "Datei nicht gefunden",
     "vat_invalid": "UID nicht im VIES-Register gefunden",
     "vat_service_unavailable": "UID-Prüfung ist zeitweise nicht verfügbar",
-    "invoice_parsing": "Das Dokument wird gerade verarbeitet – Felder sind nach Abschluss des Parsens bearbeitbar"
+    "invoice_parsing": "Das Dokument wird gerade verarbeitet – Felder sind nach Abschluss des Parsens bearbeitbar",
+    "forbidden": "Sie haben keine Berechtigung für diese Aktion",
+    "member_exists": "Der Benutzer ist bereits Mitglied der Firma",
+    "member_not_found": "Mitglied nicht gefunden",
+    "api_key_not_found": "Schlüssel nicht gefunden",
+    "last_company_admin": "Die Firma muss mindestens einen Administrator behalten"
   },
   "login": {
     "title": "Anmeldung",
@@ -232,5 +237,30 @@
     "searchPlaceholder": "Rechnungsnummer, Lieferant, Dokumenttext…",
     "viewAll": "Alle in der Liste anzeigen",
     "noResults": "Nichts gefunden."
+  },
+  "manage": {
+    "title": "Firmenverwaltung",
+    "heading": "Verwaltung – {{name}}",
+    "members": "Mitglieder",
+    "addMember": "Hinzufügen",
+    "emailPlaceholder": "E-Mail des Benutzers",
+    "role": "Rolle",
+    "roleAdmin": "Administrator",
+    "roleEditor": "Rechnungen erfassen",
+    "memberAdded": "Mitglied hinzugefügt",
+    "memberRemoved": "Mitglied entfernt",
+    "saved": "Gespeichert",
+    "inactive": "inaktives Konto",
+    "keys": "API-Schlüssel",
+    "keysHint": "Jeder Schlüssel gibt die Export-API nur für diese Firma frei.",
+    "keyLabelPlaceholder": "Schlüsselname (z. B. Pohoda)",
+    "createKey": "Schlüssel erstellen",
+    "copy": "Kopieren",
+    "copied": "Schlüssel kopiert",
+    "revoke": "Widerrufen",
+    "revoked": "Widerrufen",
+    "lastUsed": "Benutzt",
+    "neverUsed": "noch nicht benutzt",
+    "keyRevoked": "Schlüssel widerrufen"
   }
 }

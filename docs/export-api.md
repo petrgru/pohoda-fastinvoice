@@ -5,8 +5,11 @@ serveru s MS SQL / Pohoda klientem) REST API pro **dávkový export schválenýc
 faktur** a **synchronizaci partnerů**.
 
 - Base URL: `https://<host>/api/v1/export`
-- Authentizace: header `X-API-Key: <EXPORT_API_KEY>` (není uživatelský JWT).
-  Bez nastavené proměnné `EXPORT_API_KEY` jsou všechny endpointy `503`.
+- Authentizace: header `X-API-Key: <klíč>`. Kromě globálního `EXPORT_API_KEY`
+  (přístup ke všem firmám, nutný pro `PUT /companies/sync`) může správce firmy
+  vytvořit v UI **klíč na míru firmě** – ten vidí queue, soubory i výsledky
+  pouze této firmy. Bez globálního klíče **a** bez aktivních firemních klíčů
+  jsou všechny endpointy `503`.
 - Formát: JSON, identifikátory UUID, částky jako string (`"1210.00"`).
 
 ## Tok exportu
