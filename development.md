@@ -77,6 +77,30 @@ Stop a locally running FastAPI server before starting the Compose backend becaus
 
 **Note**: The first time you start the stack, it might take a minute for all the services to be ready. To monitor it, use `docker compose logs`, or `docker compose logs backend` for the backend service.
 
+## Full-Text Search (Meilisearch)
+
+Invoice search uses [Meilisearch](https://www.meilisearch.com) for ranking and
+typo tolerance when it is reachable; otherwise the application transparently
+falls back to Postgres full-text search. `docker compose up` starts the
+`meilisearch` service automatically. For a server running outside Docker,
+start an instance locally:
+
+```sh
+docker run -p 7700:7700 -e MEILI_MASTER_KEY=fastinvoice-meili-dev-key getmeili/meilisearch:v1.56
+```
+
+and put `MEILISEARCH_MASTER_KEY=fastinvoice-meili-dev-key` in the `.env` file.
+Rebuild the index after (re)installing with
+`cd backend && uv run python app/reindex_search.py`. Set
+`MEILISEARCH_ENABLED=false` to disable the engine entirely.
+
+## Development-Only Features (`DEVELOP=yes`)
+
+Setting `DEVELOP=yes` in the `.env` file enables development conveniences,
+currently **cascade deletion of companies**: deleting a company also deletes
+all its invoices and stored files. Without the flag, deleting a company that
+has invoices is rejected. Never enable `DEVELOP` in production.
+
 ## Mailpit
 
 [Mailpit](https://mailpit.axllent.org) captures emails sent during local development instead of delivering them. The local backend connects to it at `localhost:1025`, and the Compose backend connects to the `mailpit` service. Captured emails are available at <http://localhost:8025>.

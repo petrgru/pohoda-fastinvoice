@@ -16,8 +16,11 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
-import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutCompaniesRouteImport } from './routes/_layout/companies'
+import { Route as LayoutQueueRouteImport } from './routes/_layout/queue'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutInvoicesIndexRouteImport } from './routes/_layout/invoices/index'
+import { Route as LayoutInvoicesInvoiceIdRouteImport } from './routes/_layout/invoices/$invoiceId'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -53,14 +56,29 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutItemsRoute = LayoutItemsRouteImport.update({
-  id: '/items',
-  path: '/items',
+const LayoutCompaniesRoute = LayoutCompaniesRouteImport.update({
+  id: '/companies',
+  path: '/companies',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutQueueRoute = LayoutQueueRouteImport.update({
+  id: '/queue',
+  path: '/queue',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutInvoicesIndexRoute = LayoutInvoicesIndexRouteImport.update({
+  id: '/invoices/',
+  path: '/invoices/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutInvoicesInvoiceIdRoute = LayoutInvoicesInvoiceIdRouteImport.update({
+  id: '/invoices/$invoiceId',
+  path: '/invoices/$invoiceId',
   getParentRoute: () => LayoutRoute,
 } as any)
 
@@ -71,8 +89,11 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
-  '/items': typeof LayoutItemsRoute
+  '/companies': typeof LayoutCompaniesRoute
+  '/queue': typeof LayoutQueueRoute
   '/settings': typeof LayoutSettingsRoute
+  '/invoices/$invoiceId': typeof LayoutInvoicesInvoiceIdRoute
+  '/invoices/': typeof LayoutInvoicesIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -80,9 +101,12 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
-  '/items': typeof LayoutItemsRoute
+  '/companies': typeof LayoutCompaniesRoute
+  '/queue': typeof LayoutQueueRoute
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
+  '/invoices/$invoiceId': typeof LayoutInvoicesInvoiceIdRoute
+  '/invoices': typeof LayoutInvoicesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,9 +116,12 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
-  '/_layout/items': typeof LayoutItemsRoute
+  '/_layout/companies': typeof LayoutCompaniesRoute
+  '/_layout/queue': typeof LayoutQueueRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/invoices/$invoiceId': typeof LayoutInvoicesInvoiceIdRoute
+  '/_layout/invoices/': typeof LayoutInvoicesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -105,8 +132,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
-    | '/items'
+    | '/companies'
+    | '/queue'
     | '/settings'
+    | '/invoices/$invoiceId'
+    | '/invoices/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -114,9 +144,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
-    | '/items'
+    | '/companies'
+    | '/queue'
     | '/settings'
     | '/'
+    | '/invoices/$invoiceId'
+    | '/invoices'
   id:
     | '__root__'
     | '/_layout'
@@ -125,9 +158,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_layout/admin'
-    | '/_layout/items'
+    | '/_layout/companies'
+    | '/_layout/queue'
     | '/_layout/settings'
     | '/_layout/'
+    | '/_layout/invoices/$invoiceId'
+    | '/_layout/invoices/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -189,11 +225,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/items': {
-      id: '/_layout/items'
-      path: '/items'
-      fullPath: '/items'
-      preLoaderRoute: typeof LayoutItemsRouteImport
+    '/_layout/companies': {
+      id: '/_layout/companies'
+      path: '/companies'
+      fullPath: '/companies'
+      preLoaderRoute: typeof LayoutCompaniesRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/queue': {
+      id: '/_layout/queue'
+      path: '/queue'
+      fullPath: '/queue'
+      preLoaderRoute: typeof LayoutQueueRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/settings': {
@@ -203,21 +246,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/invoices/': {
+      id: '/_layout/invoices/'
+      path: '/invoices'
+      fullPath: '/invoices/'
+      preLoaderRoute: typeof LayoutInvoicesIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/invoices/$invoiceId': {
+      id: '/_layout/invoices/$invoiceId'
+      path: '/invoices/$invoiceId'
+      fullPath: '/invoices/$invoiceId'
+      preLoaderRoute: typeof LayoutInvoicesInvoiceIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
   }
 }
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
-  LayoutItemsRoute: typeof LayoutItemsRoute
+  LayoutCompaniesRoute: typeof LayoutCompaniesRoute
+  LayoutQueueRoute: typeof LayoutQueueRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutInvoicesInvoiceIdRoute: typeof LayoutInvoicesInvoiceIdRoute
+  LayoutInvoicesIndexRoute: typeof LayoutInvoicesIndexRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
-  LayoutItemsRoute: LayoutItemsRoute,
+  LayoutCompaniesRoute: LayoutCompaniesRoute,
+  LayoutQueueRoute: LayoutQueueRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutInvoicesInvoiceIdRoute: LayoutInvoicesInvoiceIdRoute,
+  LayoutInvoicesIndexRoute: LayoutInvoicesIndexRoute,
 }
 
 const LayoutRouteWithChildren =

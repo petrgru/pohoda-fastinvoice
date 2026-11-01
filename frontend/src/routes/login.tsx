@@ -5,6 +5,7 @@ import {
   redirect,
 } from "@tanstack/react-router"
 import { useForm } from "react-hook-form"
+import { useTranslation } from "react-i18next"
 import { z } from "zod"
 
 import type { Body_login_login_access_token as AccessToken } from "@/client"
@@ -22,15 +23,7 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { PasswordInput } from "@/components/ui/password-input"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 
-const formSchema = z.object({
-  username: z.email({ message: "Invalid email address" }),
-  password: z
-    .string()
-    .min(1, { message: "Password is required" })
-    .min(8, { message: "Password must be at least 8 characters" }),
-}) satisfies z.ZodType<AccessToken>
-
-type FormData = z.infer<typeof formSchema>
+type FormData = AccessToken
 
 export const Route = createFileRoute("/login")({
   component: Login,
@@ -51,7 +44,15 @@ export const Route = createFileRoute("/login")({
 })
 
 function Login() {
+  const { t } = useTranslation()
   const { loginMutation } = useAuth()
+  const formSchema = z.object({
+    username: z.email({ message: t("login.invalidEmail") }),
+    password: z
+      .string()
+      .min(1, { message: t("login.passwordRequired") })
+      .min(8, { message: t("login.passwordMin") }),
+  }) satisfies z.ZodType<AccessToken>
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onBlur",
@@ -75,7 +76,7 @@ function Login() {
           className="flex flex-col gap-6"
         >
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Login to your account</h1>
+            <h1 className="text-2xl font-bold">{t("login.title")}</h1>
           </div>
 
           <div className="grid gap-4">
@@ -84,7 +85,7 @@ function Login() {
               name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>{t("login.email")}</FormLabel>
                   <FormControl>
                     <Input
                       data-testid="email-input"
@@ -104,18 +105,18 @@ function Login() {
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center">
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>{t("login.password")}</FormLabel>
                     <RouterLink
                       to="/recover-password"
                       className="ml-auto text-sm underline-offset-4 hover:underline"
                     >
-                      Forgot your password?
+                      {t("login.recover")}
                     </RouterLink>
                   </div>
                   <FormControl>
                     <PasswordInput
                       data-testid="password-input"
-                      placeholder="Password"
+                      placeholder={t("login.password")}
                       {...field}
                     />
                   </FormControl>
@@ -124,15 +125,19 @@ function Login() {
               )}
             />
 
-            <LoadingButton type="submit" loading={loginMutation.isPending}>
-              Log In
+            <LoadingButton
+              type="submit"
+              loading={loginMutation.isPending}
+              data-testid="login-button"
+            >
+              {t("login.signIn")}
             </LoadingButton>
           </div>
 
           <div className="text-center text-sm">
-            Don't have an account yet?{" "}
+            {t("login.noAccount")}{" "}
             <RouterLink to="/signup" className="underline underline-offset-4">
-              Sign up
+              {t("login.signUp")}
             </RouterLink>
           </div>
         </form>

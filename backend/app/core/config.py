@@ -1,4 +1,5 @@
 import warnings
+from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import (
@@ -64,6 +65,50 @@ class Settings(BaseSettings):
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
+
+    # --- Invoice storage --------------------------------------------------
+    # "local" stores files under LOCAL_STORAGE_PATH (development),
+    # "s3" stores them in an S3-compatible bucket (production).
+    STORAGE_BACKEND: Literal["local", "s3"] = "local"
+    LOCAL_STORAGE_PATH: Path = Path("./storage/invoices")
+    S3_BUCKET: str | None = None
+    S3_ENDPOINT_URL: HttpUrl | None = None
+    S3_ACCESS_KEY_ID: str | None = None
+    S3_SECRET_ACCESS_KEY: str | None = None
+    S3_REGION: str = "us-east-1"
+    MAX_UPLOAD_SIZE_MB: int = 20
+
+    # --- Invoice parsing (OpenAI-compatible LLM API) ------------------------
+    # Works with any server exposing /chat/completions (OpenAI, llama.cpp,
+    # vLLM, Ollama in --api-compat mode, …). API key is optional for local
+    # servers; when set it is sent as `Authorization: Bearer …`.
+    LLM_BASE_URL: str = "http://192.168.22.154:18300/v1"
+    LLM_API_KEY: str | None = None
+    LLM_MODEL: str = "qwen3.8-flash-next"
+    # Vision model used for image-only documents; defaults to LLM_MODEL.
+    LLM_VISION_MODEL: str | None = None
+    LLM_TIMEOUT_SECONDS: int = 180
+    # guided (schema-constrained) decoding can stall on multi-page scans; give
+    # that attempt a tighter budget and fall back to plain JSON prompting
+    LLM_STRUCTURED_TIMEOUT_SECONDS: int = 150
+    # Path to tesseract binary for OCR of scans/photos; None disables OCR.
+    TESSERACT_PATH: str | None = "tesseract"
+
+    # --- Export API for the Pohoda connector app ----------------------------
+    # When unset, /api/v1/export/* endpoints return 503.
+    EXPORT_API_KEY: str | None = None
+
+    # --- VAT validation (VatComply / VIES) -----------------------------------
+    # DIČ is validated against VatComply (no API key needed, 2 req/s limit).
+    # When the service is unreachable the check is skipped (fail-open).
+    # `DEVELOP=yes` in .env enables destructive development-only features
+    DEVELOP: bool = False
+    MEILISEARCH_ENABLED: bool = True
+    MEILISEARCH_URL: str = "http://localhost:7700"
+    MEILISEARCH_MASTER_KEY: str = ""
+    VATCOMPLY_BASE_URL: str = "https://api.vatcomply.com"
+    VATCOMPLY_ENABLED: bool = True
+    VATCOMPLY_TIMEOUT_SECONDS: float = 5.0
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

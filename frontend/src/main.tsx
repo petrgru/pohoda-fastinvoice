@@ -11,6 +11,7 @@ import ReactDOM from "react-dom/client"
 import { client } from "./client/client.gen"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
+import "./i18n"
 import "./index.css"
 import { routeTree } from "./routeTree.gen"
 
@@ -20,11 +21,18 @@ client.setConfig({
 })
 
 const handleApiError = (error: Error) => {
+  // Only an authentication failure (401) ends the session – 403 is a business
+  // rule here (e.g. invoice locked after export) and 401s from the login
+  // endpoint itself must not bounce/reload the login page.
+  const url = error instanceof AxiosError ? (error.config?.url ?? "") : ""
   if (
     error instanceof AxiosError &&
-    [401, 403].includes(error.response?.status ?? 0)
+    error.response?.status === 401 &&
+    !url.includes("/login/access-token") &&
+    !window.location.pathname.startsWith("/login")
   ) {
     localStorage.removeItem("access_token")
+    queryClient.clear()
     window.location.href = "/login"
   }
 }

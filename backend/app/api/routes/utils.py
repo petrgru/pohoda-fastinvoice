@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
 from pydantic.networks import EmailStr
 
-from app.api.deps import get_current_active_superuser
-from app.models import Message
+from app.api.deps import CurrentUser, get_current_active_superuser
+from app.core.config import settings
+from app.models import Message, RuntimeConfig
 from app.utils import generate_test_email, send_email
 
 router = APIRouter(prefix="/utils", tags=["utils"])
@@ -24,6 +25,11 @@ def test_email(email_to: EmailStr) -> Message:
         html_content=email_data.html_content,
     )
     return Message(message="Test email sent")
+
+
+@router.get("/config/", response_model=RuntimeConfig)
+def runtime_config(current_user: CurrentUser) -> RuntimeConfig:  # noqa: ARG001
+    return RuntimeConfig(develop=settings.DEVELOP)
 
 
 @router.get("/health-check/")

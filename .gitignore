@@ -6,3 +6,10 @@ backend/app/frontend/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Local invoice storage and test fixtures (contain real personal/financial data)
+backend/storage/
+/test_data/
+
+# Build artifacts
+*.tsbuildinfo

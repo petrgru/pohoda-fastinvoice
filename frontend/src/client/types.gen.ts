@@ -5,6 +5,52 @@ export type ClientOptions = {
 };
 
 /**
+ * BankAccountCreate
+ */
+export type BankAccountCreate = {
+    /**
+     * Account
+     */
+    account?: string | null;
+    /**
+     * Iban
+     */
+    iban?: string | null;
+};
+
+/**
+ * BankAccountPublic
+ */
+export type BankAccountPublic = {
+    /**
+     * Account
+     */
+    account?: string | null;
+    /**
+     * Iban
+     */
+    iban?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Position
+     */
+    position?: number;
+};
+
+/**
+ * Body_invoices-upload_invoice
+ */
+export type Body_invoices_upload_invoice = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
  * Body_login-login_access_token
  */
 export type Body_login_login_access_token = {
@@ -35,6 +81,313 @@ export type Body_login_login_access_token = {
 };
 
 /**
+ * CompaniesPublic
+ */
+export type CompaniesPublic = {
+    /**
+     * Data
+     */
+    data: Array<CompanyPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
+ * CompanyAssign
+ */
+export type CompanyAssign = {
+    /**
+     * Company Id
+     */
+    company_id: string;
+};
+
+/**
+ * CompanyCreate
+ */
+export type CompanyCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Ico
+     */
+    ico: string;
+    /**
+     * Dic
+     */
+    dic?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Bank Account
+     */
+    bank_account: string;
+    /**
+     * Note
+     */
+    note?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Bank Accounts
+     */
+    bank_accounts?: Array<BankAccountCreate> | null;
+};
+
+/**
+ * CompanyPublic
+ */
+export type CompanyPublic = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Ico
+     */
+    ico: string;
+    /**
+     * Dic
+     */
+    dic?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Bank Account
+     */
+    bank_account?: string | null;
+    /**
+     * Note
+     */
+    note?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+    /**
+     * Source
+     */
+    source?: string;
+    /**
+     * Bank Accounts
+     */
+    bank_accounts?: Array<BankAccountPublic>;
+};
+
+/**
+ * CompanySyncItem
+ *
+ * One company record in a bulk sync payload from the Pohoda connector.
+ */
+export type CompanySyncItem = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Ico
+     */
+    ico: string;
+    /**
+     * Dic
+     */
+    dic?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Bank Account
+     */
+    bank_account?: string | null;
+    /**
+     * Note
+     */
+    note?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Bank Accounts
+     */
+    bank_accounts?: Array<BankAccountCreate> | null;
+};
+
+/**
+ * CompanySyncPayload
+ */
+export type CompanySyncPayload = {
+    /**
+     * Companies
+     */
+    companies: Array<CompanySyncItem>;
+};
+
+/**
+ * CompanyUpdate
+ */
+export type CompanyUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Ico
+     */
+    ico?: string | null;
+    /**
+     * Dic
+     */
+    dic?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Bank Account
+     */
+    bank_account?: string | null;
+    /**
+     * Bank Accounts
+     */
+    bank_accounts?: Array<BankAccountCreate> | null;
+    /**
+     * Note
+     */
+    note?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+};
+
+/**
+ * ExportQueueItem
+ */
+export type ExportQueueItem = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * State
+     */
+    state: string;
+    /**
+     * Original Filename
+     */
+    original_filename: string;
+    /**
+     * Content Type
+     */
+    content_type: string;
+    /**
+     * Export Url
+     */
+    export_url: string;
+    company: CompanyPublic;
+    /**
+     * Invoice Number
+     */
+    invoice_number?: string | null;
+    /**
+     * Document Type
+     */
+    document_type?: string | null;
+    /**
+     * Issue Date
+     */
+    issue_date?: string | null;
+    /**
+     * Due Date
+     */
+    due_date?: string | null;
+    /**
+     * Total Price
+     */
+    total_price?: string | null;
+    /**
+     * Total Vat
+     */
+    total_vat?: string | null;
+    /**
+     * Total Without Vat
+     */
+    total_without_vat?: string | null;
+    /**
+     * Currency
+     */
+    currency?: string | null;
+    /**
+     * Vat Items
+     */
+    vat_items?: Array<VatItem_Output> | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+};
+
+/**
+ * ExportQueuePublic
+ */
+export type ExportQueuePublic = {
+    /**
+     * Data
+     */
+    data: Array<ExportQueueItem>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
+ * ExportResult
+ */
+export type ExportResult = {
+    /**
+     * Invoice Id
+     */
+    invoice_id: string;
+    /**
+     * Success
+     */
+    success: boolean;
+    /**
+     * Batch Ref
+     */
+    batch_ref?: string | null;
+    /**
+     * Error
+     */
+    error?: string | null;
+};
+
+/**
  * HTTPValidationError
  */
 export type HTTPValidationError = {
@@ -45,67 +398,304 @@ export type HTTPValidationError = {
 };
 
 /**
- * ItemCreate
+ * InvoicePublic
+ *
+ * Public representation built via `crud.invoices.to_public()`.
  */
-export type ItemCreate = {
-    /**
-     * Title
-     */
-    title: string;
-    /**
-     * Description
-     */
-    description?: string | null;
-};
-
-/**
- * ItemPublic
- */
-export type ItemPublic = {
-    /**
-     * Title
-     */
-    title: string;
-    /**
-     * Description
-     */
-    description?: string | null;
+export type InvoicePublic = {
     /**
      * Id
      */
     id: string;
     /**
-     * Owner Id
-     */
-    owner_id: string;
-    /**
      * Created At
      */
     created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+    /**
+     * Original Filename
+     */
+    original_filename: string;
+    /**
+     * Content Type
+     */
+    content_type: string;
+    /**
+     * File Size
+     */
+    file_size: number;
+    /**
+     * State
+     */
+    state: string;
+    /**
+     * State Note
+     */
+    state_note?: string | null;
+    /**
+     * Parse Error
+     */
+    parse_error?: string | null;
+    /**
+     * Llm Confidence
+     */
+    llm_confidence?: number | null;
+    /**
+     * Invoice Number
+     */
+    invoice_number?: string | null;
+    /**
+     * Supplier Name
+     */
+    supplier_name?: string | null;
+    /**
+     * Supplier Ico
+     */
+    supplier_ico?: string | null;
+    /**
+     * Supplier Dic
+     */
+    supplier_dic?: string | null;
+    /**
+     * Supplier Bank Account
+     */
+    supplier_bank_account?: string | null;
+    /**
+     * Supplier Iban
+     */
+    supplier_iban?: string | null;
+    /**
+     * Supplier Bank Accounts
+     */
+    supplier_bank_accounts?: Array<SupplierBankAccount> | null;
+    /**
+     * Document Type
+     */
+    document_type?: string | null;
+    /**
+     * Issue Date
+     */
+    issue_date?: string | null;
+    /**
+     * Delivery Date
+     */
+    delivery_date?: string | null;
+    /**
+     * Due Date
+     */
+    due_date?: string | null;
+    /**
+     * Total Price
+     */
+    total_price?: string | null;
+    /**
+     * Total Vat
+     */
+    total_vat?: string | null;
+    /**
+     * Total Without Vat
+     */
+    total_without_vat?: string | null;
+    /**
+     * Currency
+     */
+    currency?: string | null;
+    /**
+     * Vat Items
+     */
+    vat_items?: Array<VatItem_Output> | null;
+    /**
+     * Vat Check Ok
+     */
+    vat_check_ok?: boolean | null;
+    /**
+     * Vat Difference
+     */
+    vat_difference?: string | null;
+    /**
+     * Vat Rate Warnings
+     */
+    vat_rate_warnings?: Array<string>;
+    /**
+     * Company Id
+     */
+    company_id?: string | null;
+    company?: CompanyPublic | null;
+    /**
+     * Approved By Id
+     */
+    approved_by_id?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Exported At
+     */
+    exported_at?: string | null;
+    /**
+     * Can Delete
+     */
+    can_delete?: boolean;
+    /**
+     * Queue Reasons
+     */
+    queue_reasons?: Array<string>;
 };
 
 /**
- * ItemUpdate
+ * InvoiceStateCounts
+ *
+ * Invoice counts broken down by workflow state.
  */
-export type ItemUpdate = {
+export type InvoiceStateCounts = {
     /**
-     * Title
+     * Uploaded
      */
-    title?: string | null;
+    uploaded?: number;
     /**
-     * Description
+     * Parsing
      */
-    description?: string | null;
+    parsing?: number;
+    /**
+     * Needs Review
+     */
+    needs_review?: number;
+    /**
+     * Ready For Export
+     */
+    ready_for_export?: number;
+    /**
+     * Exported
+     */
+    exported?: number;
+    /**
+     * Export Failed
+     */
+    export_failed?: number;
 };
 
 /**
- * ItemsPublic
+ * InvoiceStats
+ *
+ * Aggregations for the dashboard: recent periods and global totals.
  */
-export type ItemsPublic = {
+export type InvoiceStats = {
+    /**
+     * Day
+     */
+    day?: Array<InvoiceStatsBucket>;
+    /**
+     * Week
+     */
+    week?: Array<InvoiceStatsBucket>;
+    /**
+     * Month
+     */
+    month?: Array<InvoiceStatsBucket>;
+    totals?: InvoiceStateCounts;
+};
+
+/**
+ * InvoiceStatsBucket
+ *
+ * One day/week/month of the dashboard chart series.
+ */
+export type InvoiceStatsBucket = {
+    /**
+     * Period
+     */
+    period: string;
+    /**
+     * Total
+     */
+    total?: number;
+    by_state?: InvoiceStateCounts;
+};
+
+/**
+ * InvoiceUpdate
+ *
+ * User corrections of parsed fields; recalculation happens in crud.
+ */
+export type InvoiceUpdate = {
+    /**
+     * Invoice Number
+     */
+    invoice_number?: string | null;
+    /**
+     * Supplier Name
+     */
+    supplier_name?: string | null;
+    /**
+     * Supplier Ico
+     */
+    supplier_ico?: string | null;
+    /**
+     * Supplier Dic
+     */
+    supplier_dic?: string | null;
+    /**
+     * Supplier Bank Account
+     */
+    supplier_bank_account?: string | null;
+    /**
+     * Supplier Iban
+     */
+    supplier_iban?: string | null;
+    /**
+     * Supplier Bank Accounts
+     */
+    supplier_bank_accounts?: Array<SupplierBankAccount> | null;
+    /**
+     * Document Type
+     */
+    document_type?: string | null;
+    /**
+     * Issue Date
+     */
+    issue_date?: string | null;
+    /**
+     * Delivery Date
+     */
+    delivery_date?: string | null;
+    /**
+     * Due Date
+     */
+    due_date?: string | null;
+    /**
+     * Total Price
+     */
+    total_price?: number | string | null;
+    /**
+     * Total Vat
+     */
+    total_vat?: number | string | null;
+    /**
+     * Total Without Vat
+     */
+    total_without_vat?: number | string | null;
+    /**
+     * Currency
+     */
+    currency?: string | null;
+    /**
+     * Vat Items
+     */
+    vat_items?: Array<VatItem_Input> | null;
+};
+
+/**
+ * InvoicesPublic
+ */
+export type InvoicesPublic = {
     /**
      * Data
      */
-    data: Array<ItemPublic>;
+    data: Array<InvoicePublic>;
     /**
      * Count
      */
@@ -156,6 +746,34 @@ export type PrivateUserCreate = {
      * Is Verified
      */
     is_verified?: boolean;
+};
+
+/**
+ * RuntimeConfig
+ *
+ * Public feature flags the UI may adapt to.
+ */
+export type RuntimeConfig = {
+    /**
+     * Develop
+     */
+    develop?: boolean;
+};
+
+/**
+ * SupplierBankAccount
+ *
+ * One payment account of the invoice supplier (parsed, user-correctable).
+ */
+export type SupplierBankAccount = {
+    /**
+     * Account
+     */
+    account?: string | null;
+    /**
+     * Iban
+     */
+    iban?: string | null;
 };
 
 /**
@@ -340,6 +958,86 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * VatInfoPublic
+ *
+ * VAT validity plus the registered name/address (for form autofill).
+ */
+export type VatInfoPublic = {
+    /**
+     * Valid
+     */
+    valid: boolean;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Country Code
+     */
+    country_code?: string | null;
+};
+
+/**
+ * VatItem
+ *
+ * One VAT rate line of an invoice (Základ daně / DPH / Celkem).
+ */
+export type VatItem_Input = {
+    /**
+     * Vat Rate
+     */
+    vat_rate?: string | null;
+    /**
+     * Base Price
+     */
+    base_price?: number | string;
+    /**
+     * Tax Price
+     */
+    tax_price?: number | string;
+    /**
+     * Total Price
+     */
+    total_price?: number | string;
+    /**
+     * Currency
+     */
+    currency?: string | null;
+};
+
+/**
+ * VatItem
+ *
+ * One VAT rate line of an invoice (Základ daně / DPH / Celkem).
+ */
+export type VatItem_Output = {
+    /**
+     * Vat Rate
+     */
+    vat_rate?: string | null;
+    /**
+     * Base Price
+     */
+    base_price?: string;
+    /**
+     * Tax Price
+     */
+    tax_price?: string;
+    /**
+     * Total Price
+     */
+    total_price?: string;
+    /**
+     * Currency
+     */
+    currency?: string | null;
 };
 
 export type loginLoginAccessTokenData = {
@@ -754,6 +1452,22 @@ export type utilsTestEmailResponses = {
 
 export type utilsTestEmailResponse = utilsTestEmailResponses[keyof utilsTestEmailResponses];
 
+export type utilsRuntimeConfigData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/utils/config/';
+};
+
+export type utilsRuntimeConfigResponses = {
+    /**
+     * Successful Response
+     */
+    200: RuntimeConfig;
+};
+
+export type utilsRuntimeConfigResponse = utilsRuntimeConfigResponses[keyof utilsRuntimeConfigResponses];
+
 export type utilsHealthCheckData = {
     body?: never;
     path?: never;
@@ -772,7 +1486,265 @@ export type utilsHealthCheckResponses = {
 
 export type utilsHealthCheckResponse = utilsHealthCheckResponses[keyof utilsHealthCheckResponses];
 
-export type itemsReadItemsData = {
+export type companiesListCompaniesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Q
+         */
+        q?: string | null;
+        /**
+         * Include Inactive
+         */
+        include_inactive?: boolean;
+    };
+    url: '/api/v1/companies';
+};
+
+export type companiesListCompaniesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesListCompaniesError = companiesListCompaniesErrors[keyof companiesListCompaniesErrors];
+
+export type companiesListCompaniesResponses = {
+    /**
+     * Successful Response
+     */
+    200: CompaniesPublic;
+};
+
+export type companiesListCompaniesResponse = companiesListCompaniesResponses[keyof companiesListCompaniesResponses];
+
+export type companiesCreateCompanyData = {
+    body: CompanyCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/companies';
+};
+
+export type companiesCreateCompanyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesCreateCompanyError = companiesCreateCompanyErrors[keyof companiesCreateCompanyErrors];
+
+export type companiesCreateCompanyResponses = {
+    /**
+     * Successful Response
+     */
+    201: CompanyPublic;
+};
+
+export type companiesCreateCompanyResponse = companiesCreateCompanyResponses[keyof companiesCreateCompanyResponses];
+
+export type companiesGetVatInfoData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Dic
+         */
+        dic: string;
+    };
+    url: '/api/v1/companies/vat-info';
+};
+
+export type companiesGetVatInfoErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesGetVatInfoError = companiesGetVatInfoErrors[keyof companiesGetVatInfoErrors];
+
+export type companiesGetVatInfoResponses = {
+    /**
+     * Successful Response
+     */
+    200: VatInfoPublic;
+};
+
+export type companiesGetVatInfoResponse = companiesGetVatInfoResponses[keyof companiesGetVatInfoResponses];
+
+export type companiesDeleteCompanyData = {
+    body?: never;
+    path: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/{company_id}';
+};
+
+export type companiesDeleteCompanyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesDeleteCompanyError = companiesDeleteCompanyErrors[keyof companiesDeleteCompanyErrors];
+
+export type companiesDeleteCompanyResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type companiesDeleteCompanyResponse = companiesDeleteCompanyResponses[keyof companiesDeleteCompanyResponses];
+
+export type companiesGetCompanyData = {
+    body?: never;
+    path: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/{company_id}';
+};
+
+export type companiesGetCompanyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesGetCompanyError = companiesGetCompanyErrors[keyof companiesGetCompanyErrors];
+
+export type companiesGetCompanyResponses = {
+    /**
+     * Successful Response
+     */
+    200: CompanyPublic;
+};
+
+export type companiesGetCompanyResponse = companiesGetCompanyResponses[keyof companiesGetCompanyResponses];
+
+export type companiesUpdateCompanyData = {
+    body: CompanyUpdate;
+    path: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+    };
+    query?: never;
+    url: '/api/v1/companies/{company_id}';
+};
+
+export type companiesUpdateCompanyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type companiesUpdateCompanyError = companiesUpdateCompanyErrors[keyof companiesUpdateCompanyErrors];
+
+export type companiesUpdateCompanyResponses = {
+    /**
+     * Successful Response
+     */
+    200: CompanyPublic;
+};
+
+export type companiesUpdateCompanyResponse = companiesUpdateCompanyResponses[keyof companiesUpdateCompanyResponses];
+
+export type invoicesUploadInvoiceData = {
+    body: Body_invoices_upload_invoice;
+    path?: never;
+    query?: never;
+    url: '/api/v1/invoices/upload';
+};
+
+export type invoicesUploadInvoiceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesUploadInvoiceError = invoicesUploadInvoiceErrors[keyof invoicesUploadInvoiceErrors];
+
+export type invoicesUploadInvoiceResponses = {
+    /**
+     * Successful Response
+     */
+    201: InvoicePublic;
+};
+
+export type invoicesUploadInvoiceResponse = invoicesUploadInvoiceResponses[keyof invoicesUploadInvoiceResponses];
+
+export type invoicesListInvoicesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * State
+         */
+        state?: string | null;
+        /**
+         * Company Id
+         */
+        company_id?: string | null;
+        /**
+         * Q
+         */
+        q?: string | null;
+    };
+    url: '/api/v1/invoices';
+};
+
+export type invoicesListInvoicesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesListInvoicesError = invoicesListInvoicesErrors[keyof invoicesListInvoicesErrors];
+
+export type invoicesListInvoicesResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvoicesPublic;
+};
+
+export type invoicesListInvoicesResponse = invoicesListInvoicesResponses[keyof invoicesListInvoicesResponses];
+
+export type invoicesListQueueData = {
     body?: never;
     path?: never;
     query?: {
@@ -785,141 +1757,439 @@ export type itemsReadItemsData = {
          */
         limit?: number;
     };
-    url: '/api/v1/items/';
+    url: '/api/v1/invoices/queue';
 };
 
-export type itemsReadItemsErrors = {
+export type invoicesListQueueErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type itemsReadItemsError = itemsReadItemsErrors[keyof itemsReadItemsErrors];
+export type invoicesListQueueError = invoicesListQueueErrors[keyof invoicesListQueueErrors];
 
-export type itemsReadItemsResponses = {
+export type invoicesListQueueResponses = {
     /**
      * Successful Response
      */
-    200: ItemsPublic;
+    200: InvoicesPublic;
 };
 
-export type itemsReadItemsResponse = itemsReadItemsResponses[keyof itemsReadItemsResponses];
+export type invoicesListQueueResponse = invoicesListQueueResponses[keyof invoicesListQueueResponses];
 
-export type itemsCreateItemData = {
-    body: ItemCreate;
+export type invoicesInvoiceStatsData = {
+    body?: never;
     path?: never;
     query?: never;
-    url: '/api/v1/items/';
+    url: '/api/v1/invoices/stats';
 };
 
-export type itemsCreateItemErrors = {
-    /**
-     * Validation Error
-     */
-    422: HTTPValidationError;
-};
-
-export type itemsCreateItemError = itemsCreateItemErrors[keyof itemsCreateItemErrors];
-
-export type itemsCreateItemResponses = {
+export type invoicesInvoiceStatsResponses = {
     /**
      * Successful Response
      */
-    200: ItemPublic;
+    200: InvoiceStats;
 };
 
-export type itemsCreateItemResponse = itemsCreateItemResponses[keyof itemsCreateItemResponses];
+export type invoicesInvoiceStatsResponse = invoicesInvoiceStatsResponses[keyof invoicesInvoiceStatsResponses];
 
-export type itemsDeleteItemData = {
+export type invoicesDeleteInvoiceData = {
     body?: never;
     path: {
         /**
-         * Id
+         * Invoice Id
          */
-        id: string;
+        invoice_id: string;
     };
     query?: never;
-    url: '/api/v1/items/{id}';
+    url: '/api/v1/invoices/{invoice_id}';
 };
 
-export type itemsDeleteItemErrors = {
+export type invoicesDeleteInvoiceErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type itemsDeleteItemError = itemsDeleteItemErrors[keyof itemsDeleteItemErrors];
+export type invoicesDeleteInvoiceError = invoicesDeleteInvoiceErrors[keyof invoicesDeleteInvoiceErrors];
 
-export type itemsDeleteItemResponses = {
+export type invoicesDeleteInvoiceResponses = {
     /**
      * Successful Response
      */
     200: Message;
 };
 
-export type itemsDeleteItemResponse = itemsDeleteItemResponses[keyof itemsDeleteItemResponses];
+export type invoicesDeleteInvoiceResponse = invoicesDeleteInvoiceResponses[keyof invoicesDeleteInvoiceResponses];
 
-export type itemsReadItemData = {
+export type invoicesGetInvoiceData = {
     body?: never;
     path: {
         /**
-         * Id
+         * Invoice Id
          */
-        id: string;
+        invoice_id: string;
     };
     query?: never;
-    url: '/api/v1/items/{id}';
+    url: '/api/v1/invoices/{invoice_id}';
 };
 
-export type itemsReadItemErrors = {
+export type invoicesGetInvoiceErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type itemsReadItemError = itemsReadItemErrors[keyof itemsReadItemErrors];
+export type invoicesGetInvoiceError = invoicesGetInvoiceErrors[keyof invoicesGetInvoiceErrors];
 
-export type itemsReadItemResponses = {
+export type invoicesGetInvoiceResponses = {
     /**
      * Successful Response
      */
-    200: ItemPublic;
+    200: InvoicePublic;
 };
 
-export type itemsReadItemResponse = itemsReadItemResponses[keyof itemsReadItemResponses];
+export type invoicesGetInvoiceResponse = invoicesGetInvoiceResponses[keyof invoicesGetInvoiceResponses];
 
-export type itemsUpdateItemData = {
-    body: ItemUpdate;
+export type invoicesUpdateInvoiceData = {
+    body: InvoiceUpdate;
     path: {
         /**
-         * Id
+         * Invoice Id
          */
-        id: string;
+        invoice_id: string;
     };
     query?: never;
-    url: '/api/v1/items/{id}';
+    url: '/api/v1/invoices/{invoice_id}';
 };
 
-export type itemsUpdateItemErrors = {
+export type invoicesUpdateInvoiceErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type itemsUpdateItemError = itemsUpdateItemErrors[keyof itemsUpdateItemErrors];
+export type invoicesUpdateInvoiceError = invoicesUpdateInvoiceErrors[keyof invoicesUpdateInvoiceErrors];
 
-export type itemsUpdateItemResponses = {
+export type invoicesUpdateInvoiceResponses = {
     /**
      * Successful Response
      */
-    200: ItemPublic;
+    200: InvoicePublic;
 };
 
-export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdateItemResponses];
+export type invoicesUpdateInvoiceResponse = invoicesUpdateInvoiceResponses[keyof invoicesUpdateInvoiceResponses];
+
+export type invoicesGetInvoiceFileData = {
+    body?: never;
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/invoices/{invoice_id}/file';
+};
+
+export type invoicesGetInvoiceFileErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesGetInvoiceFileError = invoicesGetInvoiceFileErrors[keyof invoicesGetInvoiceFileErrors];
+
+export type invoicesGetInvoiceFileResponses = {
+    /**
+     * Response Invoices-Get Invoice File
+     *
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type invoicesAssignCompanyData = {
+    body: CompanyAssign;
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/invoices/{invoice_id}/company';
+};
+
+export type invoicesAssignCompanyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesAssignCompanyError = invoicesAssignCompanyErrors[keyof invoicesAssignCompanyErrors];
+
+export type invoicesAssignCompanyResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvoicePublic;
+};
+
+export type invoicesAssignCompanyResponse = invoicesAssignCompanyResponses[keyof invoicesAssignCompanyResponses];
+
+export type invoicesCreateCompanyForInvoiceData = {
+    body: CompanyCreate;
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/invoices/{invoice_id}/company/create';
+};
+
+export type invoicesCreateCompanyForInvoiceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesCreateCompanyForInvoiceError = invoicesCreateCompanyForInvoiceErrors[keyof invoicesCreateCompanyForInvoiceErrors];
+
+export type invoicesCreateCompanyForInvoiceResponses = {
+    /**
+     * Successful Response
+     */
+    201: InvoicePublic;
+};
+
+export type invoicesCreateCompanyForInvoiceResponse = invoicesCreateCompanyForInvoiceResponses[keyof invoicesCreateCompanyForInvoiceResponses];
+
+export type invoicesApproveInvoiceData = {
+    body?: never;
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/invoices/{invoice_id}/approve';
+};
+
+export type invoicesApproveInvoiceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesApproveInvoiceError = invoicesApproveInvoiceErrors[keyof invoicesApproveInvoiceErrors];
+
+export type invoicesApproveInvoiceResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvoicePublic;
+};
+
+export type invoicesApproveInvoiceResponse = invoicesApproveInvoiceResponses[keyof invoicesApproveInvoiceResponses];
+
+export type invoicesUnapproveInvoiceData = {
+    body?: never;
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/invoices/{invoice_id}/unapprove';
+};
+
+export type invoicesUnapproveInvoiceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesUnapproveInvoiceError = invoicesUnapproveInvoiceErrors[keyof invoicesUnapproveInvoiceErrors];
+
+export type invoicesUnapproveInvoiceResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvoicePublic;
+};
+
+export type invoicesUnapproveInvoiceResponse = invoicesUnapproveInvoiceResponses[keyof invoicesUnapproveInvoiceResponses];
+
+export type invoicesReparseInvoiceData = {
+    body?: never;
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/invoices/{invoice_id}/reparse';
+};
+
+export type invoicesReparseInvoiceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesReparseInvoiceError = invoicesReparseInvoiceErrors[keyof invoicesReparseInvoiceErrors];
+
+export type invoicesReparseInvoiceResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvoicePublic;
+};
+
+export type invoicesReparseInvoiceResponse = invoicesReparseInvoiceResponses[keyof invoicesReparseInvoiceResponses];
+
+export type exportGetExportQueueData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/export/queue';
+};
+
+export type exportGetExportQueueErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type exportGetExportQueueError = exportGetExportQueueErrors[keyof exportGetExportQueueErrors];
+
+export type exportGetExportQueueResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExportQueuePublic;
+};
+
+export type exportGetExportQueueResponse = exportGetExportQueueResponses[keyof exportGetExportQueueResponses];
+
+export type exportGetExportFileData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/export/invoices/{invoice_id}/file';
+};
+
+export type exportGetExportFileErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type exportGetExportFileError = exportGetExportFileErrors[keyof exportGetExportFileErrors];
+
+export type exportGetExportFileResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type exportReportExportResultData = {
+    body: ExportResult;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/export/result';
+};
+
+export type exportReportExportResultErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type exportReportExportResultError = exportReportExportResultErrors[keyof exportReportExportResultErrors];
+
+export type exportReportExportResultResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type exportReportExportResultResponse = exportReportExportResultResponses[keyof exportReportExportResultResponses];
+
+export type exportSyncCompaniesData = {
+    body: CompanySyncPayload;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/export/companies/sync';
+};
+
+export type exportSyncCompaniesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type exportSyncCompaniesError = exportSyncCompaniesErrors[keyof exportSyncCompaniesErrors];
+
+export type exportSyncCompaniesResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type exportSyncCompaniesResponse = exportSyncCompaniesResponses[keyof exportSyncCompaniesResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

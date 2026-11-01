@@ -24,6 +24,8 @@ const useAuth = () => {
     queryKey: ["currentUser"],
     queryFn: async () => (await UsersService.readUserMe()).data,
     enabled: isLoggedIn(),
+    // expired/deleted session must hit the 401 handler (redirect) immediately
+    retry: false,
   })
 
   const signUpMutation = useMutation({

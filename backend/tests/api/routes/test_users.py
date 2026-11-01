@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from app import crud
 from app.core.config import settings
 from app.core.security import verify_password
-from app.models import User, UserCreate
+from app.models import User, UserCreate, UserUpdate
 from tests.utils.user import create_random_user
 from tests.utils.utils import random_email, random_lower_string
 
@@ -519,3 +519,43 @@ def test_delete_user_without_privileges(
     )
     assert r.status_code == 403
     assert r.json()["detail"] == "The user doesn't have enough privileges"
+
+
+def test_deleted_user_token_unauthorized(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    """A still-valid JWT whose owner was removed must return 401 (re-login),
+    not 404 — the frontend relies on 401 to redirect to the login page."""
+    from tests.utils.user import authentication_token_from_email
+
+    user = create_random_user(db)
+    headers = authentication_token_from_email(client=client, email=user.email, db=db)
+    user_id = user.id
+    r = client.delete(
+        f"{settings.API_V1_STR}/users/{user_id}", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+    r = client.get(f"{settings.API_V1_STR}/users/me", headers=headers)
+    assert r.status_code == 401
+    assert r.json()["detail"] == "User not found"
+
+
+def test_inactive_user_token_unauthorized(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    from tests.utils.user import authentication_token_from_email
+
+    user = create_random_user(db)
+    headers = authentication_token_from_email(client=client, email=user.email, db=db)
+    user_id = user.id
+    user_in = UserUpdate(is_active=False)
+    db_user = db.get(User, user_id)
+    assert db_user is not None
+    crud.update_user(session=db, db_user=db_user, user_in=user_in)
+    r = client.get(f"{settings.API_V1_STR}/users/me", headers=headers)
+    assert r.status_code == 401
+    assert r.json()["detail"] == "Inactive user"

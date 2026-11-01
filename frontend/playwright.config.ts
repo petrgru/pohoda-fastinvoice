@@ -28,6 +28,10 @@ export default defineConfig({
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL,
 
+    /* Use an installed browser channel (e.g. PLAYWRIGHT_BROWSER_CHANNEL=chrome)
+       when the bundled Chromium download is not available. */
+    channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
+
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },

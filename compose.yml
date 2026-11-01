@@ -46,6 +46,19 @@ services:
       # Define the port inside of the Docker service to use
       - traefik.http.services.adminer.loadbalancer.server.port=8080
 
+  meilisearch:
+    image: getmeili/meilisearch:v1.56
+    environment:
+      - MEILI_MASTER_KEY=${MEILISEARCH_MASTER_KEY:-fastinvoice-meili-dev-key}
+      - MEILI_ENV=production
+    volumes:
+      - meilisearch-data:/meili_data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7700/health || wget -qO- http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     image: backend:latest
     depends_on:
@@ -63,6 +76,9 @@ services:
       EMAILS_FROM_EMAIL: ${EMAILS_FROM_EMAIL}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
       SENTRY_DSN: ${SENTRY_DSN:-}
+      MEILISEARCH_ENABLED: ${MEILISEARCH_ENABLED:-true}
+      MEILISEARCH_URL: http://meilisearch:7700
+      MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-fastinvoice-meili-dev-key}
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
@@ -86,3 +102,4 @@ services:
 
 volumes:
   app-db-data:
+  meilisearch-data:

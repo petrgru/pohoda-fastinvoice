@@ -31,6 +31,10 @@ services:
     ports:
       - "8080:8080"
 
+  meilisearch:
+    ports:
+      - "7700:7700"
+
   backend:
     ports:
       - "8000:8000"
