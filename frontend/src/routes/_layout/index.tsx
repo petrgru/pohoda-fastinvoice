@@ -95,6 +95,61 @@ function Dashboard() {
         <p className="text-muted-foreground">{t("dashboard.welcome")}</p>
       </div>
 
+      <div className="flex flex-col gap-3">
+        <h2 className="font-semibold">{t("stats.searchTitle")}</h2>
+        <form
+          className="relative max-w-xl"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+          <Input
+            data-testid="dashboard-search"
+            placeholder={t("stats.searchPlaceholder")}
+            className="pl-8"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </form>
+        {searchTerm && !found ? <Skeleton className="h-16 max-w-xl" /> : null}
+        {found && found.data.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("stats.noResults")}{" "}
+            <Link to="/invoices" className="underline">
+              {t("stats.viewAll")}
+            </Link>
+          </p>
+        ) : null}
+        <ul className="flex max-w-xl flex-col gap-1">
+          {(found?.data ?? []).map((invoice) => (
+            <li key={invoice.id} data-testid="dashboard-search-result">
+              <Link
+                to="/invoices/$invoiceId"
+                params={{ invoiceId: invoice.id }}
+                className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
+              >
+                <span className="font-medium">
+                  {invoice.invoice_number ?? invoice.original_filename}
+                </span>
+                <span className="text-muted-foreground">
+                  {invoice.supplier_name ?? "—"}
+                </span>
+                <span className="ml-auto">
+                  {invoice.total_price ? formatPrice(invoice.total_price) : ""}
+                </span>
+                <StateBadge state={invoice.state} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+        {(found?.data.length ?? 0) > 0 && (
+          <p className="text-sm">
+            <Link to="/invoices" className="text-primary underline">
+              {t("stats.viewAll")}
+            </Link>
+          </p>
+        )}
+      </div>
+
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold">{t("stats.title")}</h2>
@@ -178,61 +233,6 @@ function Dashboard() {
             </span>
           ))}
         </div>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <h2 className="font-semibold">{t("stats.searchTitle")}</h2>
-        <form
-          className="relative max-w-xl"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-          <Input
-            data-testid="dashboard-search"
-            placeholder={t("stats.searchPlaceholder")}
-            className="pl-8"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </form>
-        {searchTerm && !found ? <Skeleton className="h-16 max-w-xl" /> : null}
-        {found && found.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t("stats.noResults")}{" "}
-            <Link to="/invoices" className="underline">
-              {t("stats.viewAll")}
-            </Link>
-          </p>
-        ) : null}
-        <ul className="flex max-w-xl flex-col gap-1">
-          {(found?.data ?? []).map((invoice) => (
-            <li key={invoice.id} data-testid="dashboard-search-result">
-              <Link
-                to="/invoices/$invoiceId"
-                params={{ invoiceId: invoice.id }}
-                className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
-              >
-                <span className="font-medium">
-                  {invoice.invoice_number ?? invoice.original_filename}
-                </span>
-                <span className="text-muted-foreground">
-                  {invoice.supplier_name ?? "—"}
-                </span>
-                <span className="ml-auto">
-                  {invoice.total_price ? formatPrice(invoice.total_price) : ""}
-                </span>
-                <StateBadge state={invoice.state} />
-              </Link>
-            </li>
-          ))}
-        </ul>
-        {(found?.data.length ?? 0) > 0 && (
-          <p className="text-sm">
-            <Link to="/invoices" className="text-primary underline">
-              {t("stats.viewAll")}
-            </Link>
-          </p>
-        )}
       </div>
     </div>
   )
