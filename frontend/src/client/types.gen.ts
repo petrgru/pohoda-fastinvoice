@@ -48,6 +48,10 @@ export type Body_invoices_upload_invoice = {
      * File
      */
     file: Blob | File;
+    /**
+     * Company Id
+     */
+    company_id?: string | null;
 };
 
 /**
@@ -271,56 +275,6 @@ export type CompanyPublic = {
      */
     bank_accounts?: Array<BankAccountPublic>;
     my_role?: MembershipRole | null;
-};
-
-/**
- * CompanySyncItem
- *
- * One company record in a bulk sync payload from the Pohoda connector.
- */
-export type CompanySyncItem = {
-    /**
-     * Name
-     */
-    name: string;
-    /**
-     * Ico
-     */
-    ico: string;
-    /**
-     * Dic
-     */
-    dic?: string | null;
-    /**
-     * Address
-     */
-    address?: string | null;
-    /**
-     * Bank Account
-     */
-    bank_account?: string | null;
-    /**
-     * Note
-     */
-    note?: string | null;
-    /**
-     * Is Active
-     */
-    is_active?: boolean;
-    /**
-     * Bank Accounts
-     */
-    bank_accounts?: Array<BankAccountCreate> | null;
-};
-
-/**
- * CompanySyncPayload
- */
-export type CompanySyncPayload = {
-    /**
-     * Companies
-     */
-    companies: Array<CompanySyncItem>;
 };
 
 /**
@@ -548,6 +502,18 @@ export type InvoicePublic = {
      * Supplier Bank Accounts
      */
     supplier_bank_accounts?: Array<SupplierBankAccount> | null;
+    /**
+     * Recipient Name
+     */
+    recipient_name?: string | null;
+    /**
+     * Recipient Ico
+     */
+    recipient_ico?: string | null;
+    /**
+     * Recipient Dic
+     */
+    recipient_dic?: string | null;
     /**
      * Document Type
      */
@@ -2561,26 +2527,11 @@ export type exportReportExportResultResponses = {
 export type exportReportExportResultResponse = exportReportExportResultResponses[keyof exportReportExportResultResponses];
 
 export type exportSyncCompaniesData = {
-    body: CompanySyncPayload;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/v1/export/companies/sync';
 };
-
-export type exportSyncCompaniesErrors = {
-    /**
-     * Validation Error
-     */
-    422: HTTPValidationError;
-};
-
-export type exportSyncCompaniesError = exportSyncCompaniesErrors[keyof exportSyncCompaniesErrors];
 
 export type exportSyncCompaniesResponses = {
     /**

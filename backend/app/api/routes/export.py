@@ -16,11 +16,9 @@ from sqlmodel import Session, col, select
 from app.api.deps import SessionDep
 from app.core.config import settings
 from app.models import (
-    AuditLog,
     Company,
     CompanyApiKey,
     CompanyPublic,
-    CompanySyncPayload,
     ExportBatch,
     ExportQueueItem,
     ExportQueuePublic,
@@ -29,9 +27,7 @@ from app.models import (
     InvoiceState,
     Message,
     as_vat_items,
-    get_datetime_utc,
 )
-from app.services import companies as company_service
 from app.services import company_access, storage
 from app.services import invoices as invoice_service
 
@@ -216,59 +212,9 @@ def _ensure_batch(session: Session, batch_ref: str) -> ExportBatch:
 
 
 @router.put("/companies/sync", response_model=Message)
-def sync_companies(
-    session: SessionDep,
-    payload: CompanySyncPayload,
-    scope: Annotated[GlobalOrCompany, Depends(require_export_access)],
-) -> Message:
-    """Bulk upsert of partners from the Pohoda side (matched by IČO)."""
-    if scope is not None:
-        raise HTTPException(
-            status_code=403, detail="Sync firem vyžaduje globální API klíč"
-        )
-    created = updated = unchanged = 0
-    for item in payload.companies:
-        existing = session.exec(select(Company).where(Company.ico == item.ico)).first()
-        if existing is None:
-            company = Company(
-                name=item.name,
-                ico=item.ico,
-                dic=item.dic,
-                address=item.address,
-                bank_account=item.bank_account,
-                note=item.note,
-                is_active=item.is_active,
-                source="pohoda_sync",
-            )
-            session.add(company)
-            session.flush()
-            company_service.apply_bank_accounts(session, company, item.bank_accounts)
-            created += 1
-            continue
-        changed = False
-        if item.bank_accounts is not None:
-            company_service.apply_bank_accounts(session, existing, item.bank_accounts)
-            changed = True
-        for field in ("name", "dic", "address", "bank_account", "note", "is_active"):
-            new_value = getattr(item, field)
-            if new_value is not None and new_value != getattr(existing, field):
-                setattr(existing, field, new_value)
-                changed = True
-        existing.source = "pohoda_sync"
-        if changed:
-            existing.updated_at = get_datetime_utc()
-            updated += 1
-        else:
-            unchanged += 1
-        session.add(existing)
-    session.commit()
-    session.add(
-        AuditLog(
-            action="companies_synced",
-            details={"created": created, "updated": updated, "unchanged": unchanged},
-        )
-    )
-    session.commit()
-    return Message(
-        message=f"Sync firem: {created} nových, {updated} změněných, {unchanged} beze změny"
+def sync_companies() -> Message:
+    """Removed: companies are the app's own recipients, Pohoda no longer sends them."""
+    raise HTTPException(
+        status_code=410,
+        detail="Sync firem byl zrušen – firmy (příjemce dokladů) spravujte v aplikaci",
     )

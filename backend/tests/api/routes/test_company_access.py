@@ -208,13 +208,13 @@ def test_company_api_key_scopes_export(
     )
     assert response.status_code == 404
 
-    # company sync needs the global key
+    # company sync has been retired
     response = client.put(
         f"{EXPORT}/companies/sync",
         headers=key_headers,
         json={"companies": [{"name": "X", "ico": "12345678"}]},
     )
-    assert response.status_code == 403
+    assert response.status_code == 410
 
     # wrong key is rejected
     assert (

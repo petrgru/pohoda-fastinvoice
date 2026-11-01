@@ -16,7 +16,7 @@
     "dashboard": "Overview",
     "invoices": "Invoices",
     "queue": "Task Queue",
-    "companies": "Companies",
+    "companies": "Our companies",
     "admin": "Admin",
     "language": "Language"
   },
@@ -48,10 +48,13 @@
   "upload": {
     "button": "Upload invoice",
     "title": "Upload invoice",
-    "description": "PDF, scan or photo. The document is stored and its fields (supplier, ID no., tax ID, amounts, VAT) are extracted afterwards.",
+    "description": "PDF, scan or photo. The document is stored and its fields (supplier, recipient, ID, VAT, amounts) are read next.",
     "file": "File",
     "upload": "Upload",
-    "toastUploaded": "Invoice uploaded, parsing in progress"
+    "toastUploaded": "Invoice uploaded, parsing in progress",
+    "recipient": "Recipient (our company)",
+    "recipientPlaceholder": "— choose recipient —",
+    "recipientHint": "If you choose nothing, the company is determined from the recipient on the document."
   },
   "invoice": {
     "uploadedAt": "Uploaded",
@@ -61,8 +64,8 @@
     "parseErrorTitle": "Parsing failed",
     "parseErrorText": "{{error}} – check the document and fill in the fields manually.",
     "document": "Document",
-    "companySection": "Company (partner)",
-    "assignPlaceholder": "— assign company —",
+    "companySection": "Recipient (our company)",
+    "assignPlaceholder": "— choose recipient —",
     "icoLabel": "ID no.",
     "dicLabel": "Tax ID",
     "accountLabel": "Account",
@@ -102,20 +105,14 @@
     "documentAccounts": "Other accounts listed on the document",
     "vatCurrency": "Currency",
     "vatTotal": "Total",
-    "rateUnusual": "Rate {{rate}} is unusual for {{country}}"
-  },
-  "suggest": {
-    "title": "Supplier is not in the company database",
-    "text": "{{name}} is not among the partners yet – add it so the invoice can be approved for export.",
-    "supplierFallback": "Supplier from the document",
-    "button": "Add company and assign",
-    "dialogDescription": "Values are pre-filled from the document – the company is created only after you confirm.",
-    "duplicateIco": "A company with this ID number already exists – close this dialog and pick it from the list above.",
-    "created": "Company created and assigned to the invoice"
+    "rateUnusual": "Rate {{rate}} is unusual for {{country}}",
+    "recipientTitle": "Detected recipient",
+    "recipientText": "The document lists {{name}} as the recipient. Pick your company below.",
+    "recipientFallback": "Recipient from the document"
   },
   "companies": {
-    "title": "Companies",
-    "subtitle": "Partners – an invoice can only be assigned to a company listed here",
+    "title": "Our companies",
+    "subtitle": "Your companies as document recipients – you can invite co-workers to each",
     "searchPlaceholder": "Search by name or ID number…",
     "colName": "Name",
     "colIco": "ID no.",
@@ -135,7 +132,9 @@
     "deleteConfirmTitle": "Delete company?",
     "deleteConfirmText": "{{name}} (ID no. {{ico}}) will be removed from the partner list.",
     "colAddress": "Address",
-    "deleteCascadeHint": "Development mode: all assigned invoices including files will be deleted."
+    "deleteCascadeHint": "Development mode: all assigned invoices including files will be deleted.",
+    "emptyTitle": "No company yet",
+    "emptyHint": "Add your first company – uploaded documents are then assigned to it automatically."
   },
   "companyFields": {
     "name": "Name",
@@ -165,7 +164,7 @@
   },
   "queue": {
     "title": "Task Queue",
-    "subtitle": "Documents waiting for company assignment, confirmation or error resolution",
+    "subtitle": "Documents waiting for a recipient pick, confirmation or error resolution",
     "emptyTitle": "The queue is empty",
     "emptyHint": "All invoices are reviewed or exported",
     "colDocument": "Document",
@@ -174,7 +173,7 @@
     "colWhy": "Why it waits",
     "reason": {
       "processing": "Waiting for loading and parsing",
-      "no_company": "No company assigned (or not in the database)",
+      "no_company": "No recipient company picked yet",
       "company_inactive": "The assigned company is inactive",
       "vat_mismatch": "VAT items do not match the total amount",
       "awaiting_approval": "Waiting for user confirmation",
@@ -185,7 +184,7 @@
     "colAction": "Actions"
   },
   "errors": {
-    "approval_no_company": "Cannot approve the invoice: no company from the database is assigned",
+    "approval_no_company": "Cannot approve the invoice: your company (document recipient) is not selected",
     "approval_company_inactive": "Cannot approve the invoice: the company is inactive",
     "approval_not_parsed": "Cannot approve the invoice: it has not been parsed yet",
     "approval_vat_mismatch": "Cannot approve the invoice: VAT items do not match the total amount",
@@ -223,8 +222,8 @@
   },
   "addCompany": {
     "button": "Add company",
-    "title": "Add company",
-    "hint": "The company will be created and assigned to the invoice.",
+    "title": "Add your company",
+    "hint": "Prefilled from the recipient data on the document – the company is created once you confirm.",
     "created": "Company created and assigned to the invoice",
     "duplicateIco": "A company with this ID number already exists – close this dialog and pick it from the list above."
   },

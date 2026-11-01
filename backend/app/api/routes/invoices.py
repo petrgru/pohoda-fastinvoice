@@ -1,6 +1,7 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import ColumnElement, Text, and_, cast, func, or_
 from sqlmodel import col, select
@@ -72,8 +73,13 @@ async def upload_invoice(
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
     file: UploadFile,
+    company_id: Annotated[UUID | None, Form()] = None,
 ) -> InvoicePublic:
-    """Store an uploaded scan/photo/PDF and start parsing in the background."""
+    """Store an uploaded scan/photo/PDF and start parsing in the background.
+
+    `company_id` optionally selects the recipient (the user's own company);
+    a member with a single company does not have to choose – it is assigned.
+    """
     data = await file.read()
     if not data:
         raise HTTPException(status_code=422, detail="errors.file_empty")
@@ -102,6 +108,14 @@ async def upload_invoice(
     # path, so saving is idempotent and never leaves an orphan behind
     storage.get_storage().save(storage_key, data)
 
+    if company_id is not None:
+        company_access.ensure_company_selectable(session, current_user, company_id)
+    auto_company: Company | None = None
+    if company_id is None:
+        auto_company = company_access.sole_company_for(session, current_user)
+        if auto_company is not None:
+            company_id = auto_company.id
+
     invoice = Invoice(
         original_filename=file.filename or "invoice",
         storage_key=storage_key,
@@ -109,6 +123,7 @@ async def upload_invoice(
         file_size=len(data),
         uploaded_by_id=current_user.id,
         file_hash=file_hash,
+        company_id=company_id,
     )
     session.add(invoice)
     session.commit()
@@ -120,6 +135,14 @@ async def upload_invoice(
         user=current_user,
         details={"filename": invoice.original_filename},
     )
+    if auto_company is not None:
+        invoice_service.log_audit(
+            session,
+            "company_default_assigned",
+            invoice=invoice,
+            company=auto_company,
+            user=current_user,
+        )
     session.commit()
     background_tasks.add_task(invoice_service.process_invoice, invoice.id)
     return invoice_service.to_public(session, invoice)

@@ -479,6 +479,9 @@ class ParsedInvoice(SQLModel):
     supplier_bank_account: str | None = None
     supplier_iban: str | None = None
     supplier_bank_accounts: list[SupplierBankAccount] | None = None
+    recipient_name: str | None = Field(default=None, max_length=255)
+    recipient_ico: str | None = None
+    recipient_dic: str | None = None
     document_type: Literal["invoice", "proforma", "receipt", "other"] | None = None
     issue_date: date | None = None
     delivery_date: date | None = None
@@ -652,6 +655,10 @@ class Invoice(SQLModel, table=True):
     supplier_bank_accounts: list[dict[str, Any]] | None = Field(
         default=None, sa_column=Column(JSON)
     )  # serialized SupplierBankAccount models (JSON column)
+    # Document recipient (the user's own company detected on the document)
+    recipient_name: str | None = Field(default=None, max_length=255)
+    recipient_ico: str | None = Field(default=None, max_length=8)
+    recipient_dic: str | None = Field(default=None, max_length=15)
     document_type: str | None = Field(
         default=None, max_length=20
     )  # invoice|proforma|receipt|other
@@ -732,6 +739,9 @@ class InvoicePublic(SQLModel):
     supplier_bank_account: str | None = None
     supplier_iban: str | None = None
     supplier_bank_accounts: list[SupplierBankAccount] | None = None
+    recipient_name: str | None = None
+    recipient_ico: str | None = None
+    recipient_dic: str | None = None
     document_type: str | None = None
     issue_date: date | None = None
     delivery_date: date | None = None
@@ -874,12 +884,6 @@ class ExportQueuePublic(SQLModel):
     count: int
 
 
-class CompanySyncItem(CompanyBase):
-    """One company record in a bulk sync payload from the Pohoda connector."""
-
-    bank_accounts: list[BankAccountCreate] | None = None
-
-
 class VatInfoPublic(SQLModel):
     """VAT validity plus the registered name/address (for form autofill)."""
 
@@ -887,10 +891,6 @@ class VatInfoPublic(SQLModel):
     name: str | None = None
     address: str | None = None
     country_code: str | None = None
-
-
-class CompanySyncPayload(SQLModel):
-    companies: list[CompanySyncItem]
 
 
 class AuditLog(SQLModel, table=True):

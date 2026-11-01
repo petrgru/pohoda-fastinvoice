@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
-from app.models import Company, InvoiceState
+from app.models import InvoiceState
 from app.services import parsing
 from tests.utils.invoice import (
     SAMPLE_PDF_TEXT,
@@ -208,50 +208,11 @@ def test_export_result_conflict_for_unapproved(
     assert result.status_code == 409
 
 
-def test_companies_sync(
-    client: TestClient, db: Session, export_key, superuser_token_headers: dict[str, str]
-):
-    import random
-
-    ico_a = str(random.randrange(10000000, 99999999))
-    ico_b = str(random.randrange(10000000, 99999999))
-    payload = {
-        "companies": [
-            {
-                "name": "Pohoda Partner a.s.",
-                "ico": ico_a,
-                "dic": None,
-                "bank_account": None,
-            },
-            {
-                "name": f"Dalsi Partner {ico_b} s.r.o.",
-                "ico": ico_b,
-                "dic": None,
-                "bank_account": None,
-            },
-        ]
-    }
-    response = client.put(f"{EXPORT}/companies/sync", headers=export_key, json=payload)
-    assert response.status_code == 200
-    assert "2 nových" in response.json()["message"]
-
-    companies = client.get(
-        "/api/v1/companies", params={"q": "Partner"}, headers=superuser_token_headers
-    ).json()
-    assert companies["count"] >= 2
-
-    # update via second sync
-    payload["companies"][0]["name"] = "Pohoda Partner a.s. (zmena)"
-    response = client.put(f"{EXPORT}/companies/sync", headers=export_key, json=payload)
-    assert "1 změněných" in response.json()["message"]
-    from sqlmodel import select as _select
-
-    stored = db.exec(_select(Company).where(Company.ico == ico_a)).one()
-    assert stored.name == "Pohoda Partner a.s. (zmena)"
-    assert stored.source == "pohoda_sync"
-
-
-def test_companies_sync_invalid_ico_rejected(client: TestClient, export_key):
-    payload = {"companies": [{"name": "X", "ico": "not-ico"}]}
-    response = client.put(f"{EXPORT}/companies/sync", headers=export_key, json=payload)
-    assert response.status_code == 422
+def test_companies_sync_is_gone(client: TestClient, export_key):
+    """Bulk company sync was retired – companies are managed in the app."""
+    response = client.put(
+        f"{EXPORT}/companies/sync",
+        headers=export_key,
+        json={"companies": [{"name": "X", "ico": "12345678"}]},
+    )
+    assert response.status_code == 410

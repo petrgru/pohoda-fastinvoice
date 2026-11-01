@@ -26,7 +26,9 @@ test.describe("Invoice workflow", () => {
 
   test("companies page is accessible", async ({ page }) => {
     await page.goto("/companies")
-    await expect(page.getByRole("heading", { name: "Firmy" })).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "Naše firmy" }),
+    ).toBeVisible()
     await expect(page.getByTestId("add-company-button")).toBeVisible()
   })
 
@@ -101,7 +103,7 @@ test.describe("Invoice workflow", () => {
       await expect(
         page.getByText(/zpřístupní po načtení dokladu/i),
       ).toBeVisible()
-      await expect(page.getByTestId("suggest-company-card")).toHaveCount(0)
+      await expect(page.getByTestId("recipient-alert")).toHaveCount(0)
     }
     await expect(page.getByTestId("approve-button")).toBeEnabled({
       timeout: 90_000,
@@ -121,14 +123,16 @@ test.describe("Invoice workflow", () => {
     await page.goto("/queue")
     await expect(page.getByTestId(`queue-row-${invoice.id}`)).toBeVisible()
 
-    // Detail: reason shown, approve is not possible without a company
+    // Detail: reason shown, approve is not possible without a recipient
     await page.goto(`/invoices/${invoice.id}`)
     await expect(page.getByTestId("queue-reasons-alert")).toContainText(
-      "Není přiřazena firma",
+      "Zatím není vybrána firma příjemce",
     )
     await page.getByTestId("approve-button").click()
     await expect(
-      page.locator("[data-sonner-toaster]").getByText(/není přiřazena firma/i),
+      page
+        .locator("[data-sonner-toaster]")
+        .getByText(/není vybrána vaše firma/i),
     ).toBeVisible({ timeout: 10_000 })
 
     // Assign the company → approve switches to export queue
@@ -152,47 +156,43 @@ test.describe("Invoice workflow", () => {
     await expect(page.getByTestId("delete-invoice-menu-item")).toHaveCount(0)
   })
 
-  test("offers to add the parsed supplier as a new company", async ({
+  test("adds our company from the document when no recipient matches", async ({
     page,
   }) => {
     test.slow()
-    test.setTimeout(150_000)
+    test.setTimeout(300_000)
 
     const ico = randomIco()
-    // unique name so no previously created company can auto-match by name
-    const name = `Novy E2E Partner ${randomIco()} a.s.`
+    // the document names only a supplier – no recipient block to detect
     const invoice = await uploadInvoice([
-      "FAKTURA SUGGEST",
-      `Dodavatel: ${name}`,
+      "FAKTURA PRIJEMCE",
+      `Dodavatel: Účetní Téma ${randomIco()} s.r.o.`,
       `ICO: ${ico}`,
       "Celkem 4560,00 Kc",
     ])
-
     await page.goto(`/invoices/${invoice.id}`)
     await expect(page.getByTestId("state-badge")).toHaveText("Ke kontrole", {
-      timeout: 90_000,
+      timeout: 180_000,
     })
 
-    // The parsed supplier is not in the database yet → offer to add it
-    const card = page.getByTestId("suggest-company-card")
-    await expect(card).toBeVisible()
-    await page.getByTestId("suggest-company-button").click()
+    // no recipient detected on the document → no hint, but "add company" works
+    await expect(page.getByTestId("recipient-alert")).toHaveCount(0)
+    await page.getByTestId("add-company-for-invoice-button").click()
     const dialog = page.getByRole("dialog")
     await expect(dialog).toBeVisible()
-    // values prefilled from the parsed document, created only on confirm
-    await expect(dialog.getByPlaceholder("8 číslic")).toHaveValue(ico)
-    await expect(dialog.getByPlaceholder("Název firmy")).not.toHaveValue("")
-
-    // the account is required (everything but DIČ is) – confirm is blocked empty
-    await page.getByTestId("suggest-company-confirm-button").click()
+    await dialog.getByPlaceholder("Název firmy").fill(`Naše Firma ${ico}`)
+    await dialog.getByPlaceholder("8 číslic").fill(randomIco())
+    // the account is required – confirm is blocked empty
+    await page.getByTestId("add-company-for-invoice-confirm").click()
     await expect(page.getByText("Číslo účtu je povinné")).toBeVisible()
     await dialog.getByPlaceholder("123456789/0100").fill("123456789/0100")
 
-    await page.getByTestId("suggest-company-confirm-button").click()
-    await expect(card).toHaveCount(0)
-    await expect(page.getByText(`IČO: ${ico}`).first()).toBeVisible()
+    await page.getByTestId("add-company-for-invoice-confirm").click()
+    await expect(
+      page.getByTestId("add-company-for-invoice-button"),
+    ).toHaveCount(0)
     await expect(page.getByTestId("queue-reasons-alert")).not.toContainText(
-      "Není přiřazena firma",
+      "Zatím není vybrána firma příjemce",
       { timeout: 10_000 },
     )
   })
@@ -242,12 +242,12 @@ test.describe("Invoice workflow", () => {
       "Celkem 120,00 Kc",
     ])
 
-    // Detail: the suggest card cannot appear, but "add firm" must be visible
+    // Detail: the recipient hint cannot appear, but "add company" is visible
     await page.goto(`/invoices/${invoice.id}`)
     await expect(page.getByTestId("state-badge")).toHaveText("Ke kontrole", {
       timeout: 90_000,
     })
-    await expect(page.getByTestId("suggest-company-card")).toHaveCount(0)
+    await expect(page.getByTestId("recipient-alert")).toHaveCount(0)
     await page.getByTestId("add-company-for-invoice-button").click()
     const dialog = page.getByRole("dialog")
     await dialog
@@ -307,7 +307,7 @@ test.describe("Invoice workflow", () => {
     )
   })
 
-  test("real invoice PDF – suggests and creates the company", async ({
+  test("real invoice PDF – recipient is picked and the invoice approved", async ({
     page,
   }) => {
     test.slow()
@@ -317,6 +317,7 @@ test.describe("Invoice workflow", () => {
     // and a fixed IČO – start from a clean state so the run is repeatable
     await deleteInvoicesByFilename("364275_7926019675.pdf")
     await deleteCompanyByIco("06846904")
+    const ours = await createCompany(`E2E Příjemce ${Date.now()}`)
 
     await page.getByTestId("upload-invoice-button").click()
     await page
@@ -342,40 +343,32 @@ test.describe("Invoice workflow", () => {
       timeout: 15_000,
     })
 
-    // the LLM parses the supplier (IČO 06846904) and the FIO account
-    // 2401384534/2010 – parsing with the real model takes up to ~1 minute
+    // the LLM parses the document (supplier IČO 06846904, FIO account
+    // 2401384534/2010) – parsing with the real model takes up to ~1 minute
     await expect(page.getByTestId("state-badge")).toHaveText("Ke kontrole", {
       timeout: 120_000,
     })
-    const card = page.getByTestId("suggest-company-card")
-    await expect(card).toBeVisible()
-    await page.getByTestId("suggest-company-button").click()
-    const dialog = page.getByRole("dialog")
-    await expect(dialog.getByPlaceholder("8 číslic")).toHaveValue("06846904")
-    // the parsed account (or its IBAN form) must survive validation as-is
-    const account = dialog.getByPlaceholder("123456789/0100")
-    if ((await account.inputValue()) === "") {
-      await account.fill("2401384534/2010")
-    }
-    await page.getByTestId("suggest-company-confirm-button").click()
-    // the server waits for the same VAT check the dialog already started
-    await expect(card).toHaveCount(0, { timeout: 20_000 })
 
-    // with the company assigned the invoice can be approved for export
+    // pick our company as the recipient and approve for export
+    await page.getByTestId("company-select").click()
+    await page.getByRole("option", { name: ours.name }).click()
+    await expect(
+      page.getByTestId("add-company-for-invoice-button"),
+    ).toHaveCount(0, { timeout: 20_000 })
     await page.getByTestId("approve-button").click()
     await expect(page.getByTestId("state-badge")).toHaveText("K exportu", {
       timeout: 15_000,
     })
   })
 
-  test("Festo invoice – prefills multiple accounts when adding a company", async ({
+  test("Festo invoice – supplier accounts and VAT lines from a long document", async ({
     page,
   }) => {
     test.slow()
     test.setTimeout(480_000)
 
     // content-addressed uploads keep the original filename; stale Festo
-    // companies from earlier runs would auto-match the parsed supplier
+    // companies from earlier runs must not affect the run
     await deleteInvoicesByFilename("FAKTURA_1333134828.PDF")
     await deleteCompanyByIco("00564737")
     await deleteCompaniesByName("Festo")
@@ -410,59 +403,17 @@ test.describe("Invoice workflow", () => {
     const vatTable = page.getByTestId("vat-items-table")
     await expect(vatTable).toBeVisible()
     await expect(vatTable).toContainText("21%")
+    // Festo lists several payment accounts – the edit form shows them all
     await expect(page.getByTestId("supplier-account-row").first()).toBeVisible({
       timeout: 10_000,
     })
-
-    // the add-company dialog must prefill them (primary + the others)
-    const card = page.getByTestId("suggest-company-card")
-    if (await card.isVisible().catch(() => false)) {
-      await page.getByTestId("suggest-company-button").click()
-    } else {
-      await page.getByTestId("add-company-for-invoice-button").click()
-    }
-    const dialog = page.getByRole("dialog")
-    const primaryAccount = dialog.getByPlaceholder("123456789/0100").first()
-    const primaryIban = dialog
-      .getByPlaceholder("CZ88 0300 0000 0000 0091 2923")
-      .first()
-    const primaryFilled =
-      (await primaryAccount.inputValue()) || (await primaryIban.inputValue())
-    expect(primaryFilled).not.toBe("")
-
-    const extraRows = dialog.getByTestId("extra-account-row")
-    const extraCount = await extraRows.count()
-    if (extraCount > 0) {
-      // Festo lists several accounts – every prefilled row must carry data
-      const firstExtraFilled =
-        (await extraRows
-          .first()
-          .getByPlaceholder("123456789/0100")
-          .inputValue()) ||
-        (await extraRows
-          .first()
-          .getByPlaceholder("CZ88 0300 0000 0000 0091 2923")
-          .inputValue())
-      expect(firstExtraFilled).not.toBe("")
-    }
-
-    // the name must arrive prefilled from the document, then be randomized so
-    // the created company never name-auto-matches a later parse of this PDF
-    const nameInput = dialog.getByPlaceholder("Název firmy")
-    expect(await nameInput.inputValue()).not.toBe("")
-    await nameInput.fill(`Festo E2E ${randomIco()}`)
-    // the parsed IČO must arrive prefilled (kept so it can be cleaned up)
-    await expect(dialog.getByPlaceholder("8 číslic")).toHaveValue("00564737")
-    if (primaryFilled === "") {
-      await primaryAccount.fill("912923/0300")
-    }
-    const confirm = (await card.isVisible().catch(() => false))
-      ? "suggest-company-confirm-button"
-      : "add-company-for-invoice-confirm"
-    await page.getByTestId(confirm).click()
-    // the server waits for the same VAT check the dialog already started
-    await expect(dialog).toBeHidden({ timeout: 20_000 })
-    await expect(card).toHaveCount(0)
+    const account = page.getByTestId("supplier-account-row").first()
+    const accountFilled =
+      (await account.getByPlaceholder("123456789/0100").inputValue()) ||
+      (await account
+        .getByPlaceholder("CZ88 0300 0000 0000 0091 2923")
+        .inputValue())
+    expect(accountFilled).not.toBe("")
   })
 
   test("queue refreshes itself when a document is uploaded", async ({

@@ -56,8 +56,8 @@ def _with_roles(session, user, companies: list[Company]) -> list[CompanyPublic]:
     items = []
     for company in companies:
         public = CompanyPublic.model_validate(company)
-        public.my_role = MembershipRole.ADMIN if user.is_superuser else roles.get(
-            company.id
+        public.my_role = (
+            MembershipRole.ADMIN if user.is_superuser else roles.get(company.id)
         )
         items.append(public)
     return items
@@ -430,7 +430,10 @@ def remove_member(
 
 @router.get("/user-lookup/{email}", response_model=list[MembershipPublic])
 def lookup_user_by_email(
-    *, session: SessionDep, current_user: CurrentUser, email: str  # noqa: ARG001
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,  # noqa: ARG001
+    email: str,
 ) -> list[MembershipPublic]:
     """Match user accounts by e-mail fragment for the member picker."""
     users = session.exec(

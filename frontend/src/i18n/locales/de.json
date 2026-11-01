@@ -16,7 +16,7 @@
     "dashboard": "Übersicht",
     "invoices": "Rechnungen",
     "queue": "Aufgabenliste",
-    "companies": "Firmen",
+    "companies": "Unsere Firmen",
     "admin": "Admin",
     "language": "Sprache"
   },
@@ -51,7 +51,10 @@
     "description": "PDF, Scan oder Foto. Der Beleg wird gespeichert und die Felder (Lieferant, ID, Steuernummer, Beträge, USt) werden anschließend gelesen.",
     "file": "Datei",
     "upload": "Hochladen",
-    "toastUploaded": "Rechnung hochgeladen, Analyse läuft"
+    "toastUploaded": "Rechnung hochgeladen, Analyse läuft",
+    "recipient": "Empfänger (unsere Firma)",
+    "recipientPlaceholder": "— Empfänger wählen —",
+    "recipientHint": "Ohne Auswahl wird die Firma anhand des Empfängers im Beleg bestimmt."
   },
   "invoice": {
     "uploadedAt": "Hochgeladen",
@@ -61,8 +64,8 @@
     "parseErrorTitle": "Analyse fehlgeschlagen",
     "parseErrorText": "{{error}} – Beleg prüfen und Felder manuell ausfüllen.",
     "document": "Beleg",
-    "companySection": "Firma (Partner)",
-    "assignPlaceholder": "— Firma zuweisen —",
+    "companySection": "Empfänger (unsere Firma)",
+    "assignPlaceholder": "— Empfänger wählen —",
     "icoLabel": "ID-Nr.",
     "dicLabel": "Steuernr.",
     "accountLabel": "Konto",
@@ -102,20 +105,14 @@
     "documentAccounts": "Weitere Konten auf dem Beleg",
     "vatCurrency": "Währung",
     "vatTotal": "Gesamt",
-    "rateUnusual": "Satz {{rate}} ist für {{country}} ungewöhnlich"
-  },
-  "suggest": {
-    "title": "Lieferant ist nicht in der Firmendatenbank",
-    "text": "{{name}} ist noch nicht unter den Partnern – hinzufügen, damit die Rechnung zum Export bestätigt werden kann.",
-    "supplierFallback": "Lieferant aus dem Beleg",
-    "button": "Firma hinzufügen und zuweisen",
-    "dialogDescription": "Die Werte sind aus dem Beleg vorausgefüllt – die Firma wird erst nach der Bestätigung erstellt.",
-    "duplicateIco": "Eine Firma mit dieser ID-Nummer existiert bereits – diesen Dialog schließen und die Firma oben auswählen.",
-    "created": "Firma erstellt und der Rechnung zugewiesen"
+    "rateUnusual": "Satz {{rate}} ist für {{country}} ungewöhnlich",
+    "recipientTitle": "Erkannter Empfänger",
+    "recipientText": "Als Empfänger im Beleg ist {{name}} angegeben. Wählen Sie unten Ihre Firma.",
+    "recipientFallback": "Empfänger aus dem Beleg"
   },
   "companies": {
-    "title": "Firmen",
-    "subtitle": "Partner – eine Rechnung kann nur einer hier gelisteten Firma zugewiesen werden",
+    "title": "Unsere Firmen",
+    "subtitle": "Ihre Firmen als Empfänger der Belege – zu jeder können Sie Mitarbeitende einladen",
     "searchPlaceholder": "Nach Name oder ID-Nummer suchen…",
     "colName": "Name",
     "colIco": "ID-Nr.",
@@ -135,7 +132,9 @@
     "deleteConfirmTitle": "Firma löschen?",
     "deleteConfirmText": "{{name}} (ID-Nr. {{ico}}) wird aus der Partnerliste entfernt.",
     "colAddress": "Adresse",
-    "deleteCascadeHint": "Entwicklungsmodus: Alle zugeordneten Rechnungen inklusive Dateien werden gelöscht."
+    "deleteCascadeHint": "Entwicklungsmodus: Alle zugeordneten Rechnungen inklusive Dateien werden gelöscht.",
+    "emptyTitle": "Noch keine Firma",
+    "emptyHint": "Fügen Sie Ihre erste Firma hinzu – hochgeladene Belege werden ihr dann automatisch zugeordnet."
   },
   "companyFields": {
     "name": "Name",
@@ -165,7 +164,7 @@
   },
   "queue": {
     "title": "Aufgabenliste",
-    "subtitle": "Belege, die auf Firmenzuweisung, Bestätigung oder Fehlerbehebung warten",
+    "subtitle": "Belege, die auf Empfängerwahl, Bestätigung oder Fehlerbehebung warten",
     "emptyTitle": "Die Liste ist leer",
     "emptyHint": "Alle Rechnungen sind geprüft oder exportiert",
     "colDocument": "Beleg",
@@ -174,7 +173,7 @@
     "colWhy": "Warum es wartet",
     "reason": {
       "processing": "Warten auf Laden und Analyse",
-      "no_company": "Keine Firma zugewiesen (oder nicht in der Datenbank)",
+      "no_company": "Keine Empfänger-Firma gewählt",
       "company_inactive": "Die zugewiesene Firma ist inaktiv",
       "vat_mismatch": "USt-Positionen stimmen nicht mit dem Gesamtbetrag überein",
       "awaiting_approval": "Wartet auf Benutzerbestätigung",
@@ -185,7 +184,7 @@
     "colAction": "Aktionen"
   },
   "errors": {
-    "approval_no_company": "Rechnung kann nicht bestätigt werden: keine Firma aus der Datenbank zugewiesen",
+    "approval_no_company": "Rechnung kann nicht bestätigt werden: keine eigene Firma (Empfänger) ausgewählt",
     "approval_company_inactive": "Rechnung kann nicht bestätigt werden: die Firma ist inaktiv",
     "approval_not_parsed": "Rechnung kann nicht bestätigt werden: sie ist noch nicht analysiert",
     "approval_vat_mismatch": "Rechnung kann nicht bestätigt werden: USt-Positionen stimmen nicht mit dem Gesamtbetrag überein",
@@ -223,8 +222,8 @@
   },
   "addCompany": {
     "button": "Firma hinzufügen",
-    "title": "Firma hinzufügen",
-    "hint": "Die Firma wird erstellt und der Rechnung zugeordnet.",
+    "title": "Eigene Firma hinzufügen",
+    "hint": "Vorbefüllt sind die Empfängerangaben aus dem Beleg – die Firma entsteht erst nach Bestätigung.",
     "created": "Firma erstellt und der Rechnung zugeordnet",
     "duplicateIco": "Eine Firma mit dieser ID-Nummer existiert bereits – schließen Sie diesen Dialog und wählen Sie sie oben aus der Liste."
   },

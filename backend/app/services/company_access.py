@@ -54,6 +54,39 @@ def member_company_ids(session: Session, user: User) -> list[uuid.UUID] | None:
     )
 
 
+def candidate_companies(session: Session, user: User) -> list[Company]:
+    """Active companies an uploaded document may be assigned to."""
+    if user.is_superuser:
+        return list(
+            session.exec(
+                select(Company).where(col(Company.is_active) == True)  # noqa: E712
+            ).all()
+        )
+    ids = member_company_ids(session, user) or []
+    if not ids:
+        return []
+    return list(
+        session.exec(
+            select(Company).where(
+                col(Company.id).in_(ids),
+                col(Company.is_active) == True,  # noqa: E712
+            )
+        ).all()
+    )
+
+
+def sole_company_for(session: Session, user: User) -> Company | None:
+    """The one company a member belongs to; None with zero or several of them.
+
+    Superusers have no stored memberships (they are admin everywhere), so they
+    always pick the recipient explicitly or rely on parsing.
+    """
+    ids = member_company_ids(session, user)
+    if ids is None or len(ids) != 1:
+        return None
+    return session.get(Company, ids[0])
+
+
 def invoice_filter(session: Session, user: User):
     """SQL condition limiting invoices to what the user may see (or None)."""
     ids = member_company_ids(session, user)

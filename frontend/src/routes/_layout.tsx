@@ -1,12 +1,20 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
+import {
+  createFileRoute,
+  Navigate,
+  Outlet,
+  redirect,
+  useRouterState,
+} from "@tanstack/react-router"
 
+import { CompaniesService } from "@/client"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { isLoggedIn } from "@/hooks/useAuth"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 
 export const Route = createFileRoute("/_layout")({
   component: Layout,
@@ -20,6 +28,24 @@ export const Route = createFileRoute("/_layout")({
 })
 
 function Layout() {
+  const { user } = useAuth()
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
+  // a brand-new member must set up their first company before anything else
+  const { data: companies } = useQuery({
+    queryKey: ["companies", "onboarding"],
+    queryFn: async () =>
+      (await CompaniesService.listCompanies({ query: { limit: 1 } })).data,
+    enabled: Boolean(user) && !user?.is_superuser,
+  })
+  const needsFirstCompany =
+    Boolean(user) && !user?.is_superuser && companies?.count === 0
+
+  if (needsFirstCompany && pathname !== "/companies") {
+    return <Navigate to="/companies" replace />
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar />

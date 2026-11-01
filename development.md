@@ -98,6 +98,13 @@ with `cd backend && uv run python scripts/reindex_search.py`. Set
 
 ## Company Roles and API Keys
 
+A company means the **document recipient** – the user's own company that
+invoices are addressed to. Parsing extracts the recipient from the document
+(`recipient_*` fields) and assigns the invoice to the user's company matched by
+IČO/DIČ/name; a member with a single company gets every upload assigned to it
+right away, otherwise the recipient is picked from a dropdown at upload or on
+the review screen. A brand-new user is redirected to the company setup until
+they create their first company.
 Every company has members with one of two roles: **admin** (manages members,
 API keys, deletions – the creator of a company is always its first admin) and
 **editor** (views, uploads, edits and approves that company's invoices).
@@ -109,7 +116,7 @@ companies they belong to, plus their own uploads that are not classified yet.
 Each admin can issue **per-company API keys** for the Pohoda connector –
 such a key serves the export queue, files and result reporting of that single
 company only. The global `EXPORT_API_KEY` remains available as an
-all-companies key (and is required for `PUT /export/companies/sync`).
+all-companies key).
 
 ## Development-Only Features (`DEVELOP=yes`)
 

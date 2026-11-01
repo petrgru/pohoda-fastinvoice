@@ -9,6 +9,7 @@ import { DataTable } from "@/components/Common/DataTable"
 import { AddCompany } from "@/components/Companies/AddCompany"
 import { useCompanyColumns } from "@/components/Companies/columns"
 import PendingUsers from "@/components/Pending/PendingUsers"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 
 function Companies() {
@@ -57,6 +58,12 @@ function Companies() {
           onChange={(e) => setSearch(e.target.value)}
         />
       </form>
+      {data && companies.length === 0 && !searchTerm && (
+        <Alert data-testid="companies-empty-hint">
+          <AlertTitle>{t("companies.emptyTitle")}</AlertTitle>
+          <AlertDescription>{t("companies.emptyHint")}</AlertDescription>
+        </Alert>
+      )}
       {isPending ? (
         <PendingUsers />
       ) : (

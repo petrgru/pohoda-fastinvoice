@@ -2,11 +2,11 @@
 
 Tato aplikace (řídící UI + DB) poskytuje druhému projektu (aplikace běžící u
 serveru s MS SQL / Pohoda klientem) REST API pro **dávkový export schválených
-faktur** a **synchronizaci partnerů**.
+faktur**.
 
 - Base URL: `https://<host>/api/v1/export`
 - Authentizace: header `X-API-Key: <klíč>`. Kromě globálního `EXPORT_API_KEY`
-  (přístup ke všem firmám, nutný pro `PUT /companies/sync`) může správce firmy
+  (přístup ke všem firmám) může správce firmy
   vytvořit v UI **klíč na míru firmě** – ten vidí queue, soubory i výsledky
   pouze této firmy. Bez globálního klíče **a** bez aktivních firemních klíčů
   jsou všechny endpointy `503`.
@@ -21,8 +21,9 @@ faktur** a **synchronizaci partnerů**.
                               ↓ EXPORTED (zamčeno, nelze smazat)
 ```
 
-Faktura se do fronty **nedostane**, pokud nemá přiřazenou existující firmu
-nebo ji uživatel nepotvrdil. Takové zůstávají v frontě úloh v této aplikaci.
+Faktura se do fronty **nedostane**, pokud nemá vybranou firmu–příjemce
+(vlastníka dokladu) nebo ji uživatel nepotvrdil. Také zůstávají v frontě úloh
+v této aplikaci.
 
 ## Endpointy
 
@@ -76,17 +77,11 @@ mezitím pozbyla nárok na export.
 - Opakované hlášení úspěchu je idempotentní (`200`).
 - Pokus o úspěch u faktury bez firmy/schválení → `409`.
 
-### `PUT /export/companies/sync`
+### `PUT /export/companies/sync` – zrušeno (410 Gone)
 
-Hromadný upsert partnerů z Pohody (klíč = IČO):
-
-```json
-{ "companies": [ { "name": "…", "ico": "47123737", "dic": "CZ47123737", "bank_account": "123456789/0100", "note": null, "is_active": true } ] }
-```
-
-- validní IČO (8 číslic), DIČ (CZ prefix + mod-11), číslo účtu (mod-11)
-  – jinak `422` (celý payload je atomický).
-- nové firmy se vytvoří se `source=pohoda_sync`, existující se aktualizují.
+Firmy jsou nyní **příjemci dokladů** (vlastní společnosti uživatelů), které
+se spravují výhradně v aplikaci. Hromadný sync partnerů z Pohody byl proto
+odstraněn – endpoint vrací `410 Gone`.
 
 ## Doporučené chování konektoru
 

@@ -33,7 +33,7 @@ from app.models import (
     vat_items_to_json,
     vat_rate_warnings,
 )
-from app.services import parsing, search_index, storage
+from app.services import company_access, parsing, search_index, storage
 
 logger = logging.getLogger(__name__)
 
@@ -476,6 +476,34 @@ def to_public(session: Session, invoice: Invoice) -> InvoicePublic:
 # ---------------------------------------------------------------------------
 
 
+def assign_recipient_company(session: Session, invoice: Invoice) -> None:
+    """Attach the uploader's company the parsed recipient matches.
+
+    An explicit choice made at upload (`company_id` already set) always wins.
+    Without a recognised recipient a member with exactly one company gets it
+    assigned; anything else stays unassigned for the review screen.
+    """
+    if invoice.company_id is not None:
+        return
+    user = session.get(User, invoice.uploaded_by_id) if invoice.uploaded_by_id else None
+    if user is None:
+        return
+    company = parsing.match_company(
+        company_access.candidate_companies(session, user),
+        invoice.recipient_ico,
+        invoice.recipient_dic,
+        invoice.recipient_name,
+    )
+    action = "company_auto_matched"
+    if company is None:
+        company = company_access.sole_company_for(session, user)
+        action = "company_default_assigned"
+    if company is None:
+        return
+    invoice.company_id = company.id
+    log_audit(session, action, invoice=invoice, company=company)
+
+
 def apply_parsed(invoice: Invoice, parsed: ParsedInvoice) -> None:
     mapping = {
         "invoice_number": parsed.invoice_number,
@@ -489,6 +517,9 @@ def apply_parsed(invoice: Invoice, parsed: ParsedInvoice) -> None:
             if parsed.supplier_bank_accounts is not None
             else None
         ),
+        "recipient_name": parsed.recipient_name,
+        "recipient_ico": parsed.recipient_ico,
+        "recipient_dic": parsed.recipient_dic,
         "document_type": parsed.document_type,
         "issue_date": parsed.issue_date,
         "delivery_date": parsed.delivery_date,
@@ -541,17 +572,7 @@ def process_invoice(invoice_id: uuid.UUID) -> None:
             parsing.normalize_parsed(parsed)
             apply_parsed(invoice, parsed)
             recompute_derived(invoice)
-            company = parsing.match_company(
-                session,
-                invoice.supplier_ico,
-                invoice.supplier_dic,
-                invoice.supplier_name,
-            )
-            if company is not None:
-                invoice.company_id = company.id
-                log_audit(
-                    session, "company_auto_matched", invoice=invoice, company=company
-                )
+            assign_recipient_company(session, invoice)
         else:
             if not invoice.parse_error:
                 invoice.parse_error = "Nepodařilo se strukturovat obsah dokladu"

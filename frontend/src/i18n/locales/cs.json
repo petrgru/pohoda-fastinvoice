@@ -16,7 +16,7 @@
     "dashboard": "Plocha",
     "invoices": "Faktury",
     "queue": "Fronta úloh",
-    "companies": "Firmy",
+    "companies": "Naše firmy",
     "admin": "Admin",
     "language": "Jazyk"
   },
@@ -48,10 +48,13 @@
   "upload": {
     "button": "Nahrát fakturu",
     "title": "Nahrát fakturu",
-    "description": "PDF, sken nebo fotografii. Doklad se uloží a následně načtou pole (dodavatel, IČO, DIČ, částky, DPH).",
+    "description": "PDF, sken nebo fotografii. Doklad se uloží a následně načtou pole (dodavatel, příjemce, IČO, DIČ, částky, DPH).",
     "file": "Soubor",
     "upload": "Nahrát",
-    "toastUploaded": "Faktura nahrána, probíhá parsování"
+    "toastUploaded": "Faktura nahrána, probíhá parsování",
+    "recipient": "Příjemce (naše firma)",
+    "recipientPlaceholder": "— vybrat příjemce —",
+    "recipientHint": "Nevyberete-li, firma se určí podle příjemce uvedeného na dokladu."
   },
   "invoice": {
     "uploadedAt": "Nahráno",
@@ -61,8 +64,8 @@
     "parseErrorTitle": "Parsování selhalo",
     "parseErrorText": "{{error}} – zkontrolujte a vyplňte pole ručně.",
     "document": "Doklad",
-    "companySection": "Firma (partner)",
-    "assignPlaceholder": "— přiřadit firmu —",
+    "companySection": "Příjemce (naše firma)",
+    "assignPlaceholder": "— vybrat příjemce —",
     "icoLabel": "IČO",
     "dicLabel": "DIČ",
     "accountLabel": "Účet",
@@ -102,20 +105,14 @@
     "documentAccounts": "Další účty uvedené na dokladu",
     "vatCurrency": "Měna",
     "vatTotal": "Celkem",
-    "rateUnusual": "Sazba {{rate}} není pro {{country}} obvyklá"
-  },
-  "suggest": {
-    "title": "Dodavatel není v databázi firem",
-    "text": "{{name}} zatím není mezi partnery – přidejte ho, aby šla faktura potvrdit k exportu.",
-    "supplierFallback": "Dodavatel z dokladu",
-    "button": "Přidat firmu a přiřadit",
-    "dialogDescription": "Údaje jsou předvyplněné z dokladu – firma se vytvoří až po potvrzení.",
-    "duplicateIco": "Firma s tímto IČO již existuje – zavřete tento dialog a vyberte ji ze seznamu firem nad.",
-    "created": "Firma vytvořena a přiřazena k faktuře"
+    "rateUnusual": "Sazba {{rate}} není pro {{country}} obvyklá",
+    "recipientTitle": "Rozpoznaný příjemce",
+    "recipientText": "Na dokladu je jako příjemce uvedeno: {{name}}. Vyberte svou firmu níže.",
+    "recipientFallback": "Příjemce z dokladu"
   },
   "companies": {
-    "title": "Firmy",
-    "subtitle": "Partneři – fakturu lze přiřadit jen firmě, která je zde uvedena",
+    "title": "Naše firmy",
+    "subtitle": "Vaše firmy jako příjemci dokladů – ke každé můžete pozvat spolupracovníky",
     "searchPlaceholder": "Hledat podle názvu nebo IČO…",
     "colName": "Název",
     "colIco": "IČO",
@@ -135,7 +132,9 @@
     "deleteConfirmTitle": "Smazat firmu?",
     "deleteConfirmText": "{{name}} (IČO {{ico}}) bude odstraněna ze seznamu partnerů.",
     "colAddress": "Adresa",
-    "deleteCascadeHint": "Vývojový režim: budou smazány i všechny přiřazené faktury včetně souborů."
+    "deleteCascadeHint": "Vývojový režim: budou smazány i všechny přiřazené faktury včetně souborů.",
+    "emptyTitle": "Zatím žádná firma",
+    "emptyHint": "Přidejte svou první firmu – nahrané doklady se jí pak přiřadí automaticky."
   },
   "companyFields": {
     "name": "Název",
@@ -165,7 +164,7 @@
   },
   "queue": {
     "title": "Fronta úloh",
-    "subtitle": "Doklady, které čekají na přiřazení firmy, potvrzení nebo řešení chyb",
+    "subtitle": "Doklady, které čekají na výběr příjemce, potvrzení nebo řešení chyb",
     "emptyTitle": "Fronta je prázdná",
     "emptyHint": "Všechny faktury jsou zkontrolované nebo exportované",
     "colDocument": "Doklad",
@@ -174,7 +173,7 @@
     "colWhy": "Proč čeká",
     "reason": {
       "processing": "Čeká na načtení a parsování",
-      "no_company": "Není přiřazena firma (nebo není v databázi)",
+      "no_company": "Zatím není vybrána firma příjemce",
       "company_inactive": "Přiřazená firma je neaktivní",
       "vat_mismatch": "DPH položky nesouhlasí s celkovou částkou",
       "awaiting_approval": "Čeká na potvrzení uživatelem",
@@ -185,7 +184,7 @@
     "colAction": "Akce"
   },
   "errors": {
-    "approval_no_company": "Fakturu nelze schválit: není přiřazena firma existující v databázi",
+    "approval_no_company": "Fakturu nelze schválit: není vybrána vaše firma (příjemce dokladu)",
     "approval_company_inactive": "Fakturu nelze schválit: firma je neaktivní",
     "approval_not_parsed": "Fakturu nelze schválit: ještě není naparsovaná",
     "approval_vat_mismatch": "Fakturu nelze schválit: DPH položky nesouhlasí s celkovou částkou",
@@ -223,8 +222,8 @@
   },
   "addCompany": {
     "button": "Přidat firmu",
-    "title": "Přidat firmu",
-    "hint": "Firma se vytvoří a přiřadí k faktuře.",
+    "title": "Přidat svou firmu",
+    "hint": "Předvyplněny jsou údaje příjemce z dokladu – firma se vytvoří až po potvrzení.",
     "created": "Firma vytvořena a přiřazena k faktuře",
     "duplicateIco": "Firma s tímto IČO již existuje – zavřete dialog a vyberte ji ze seznamu nad."
   },

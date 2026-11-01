@@ -4,6 +4,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import {
   AlertTriangle,
   ArrowLeft,
+  Building2,
   CheckCircle2,
   Plus,
   RotateCcw,
@@ -20,7 +21,6 @@ import { formatPrice } from "@/components/Invoices/columns"
 import { InvoiceActionsMenu } from "@/components/Invoices/InvoiceActionsMenu"
 import { InvoicePreview } from "@/components/Invoices/InvoicePreview"
 import { StateBadge } from "@/components/Invoices/StateBadge"
-import { SuggestCompany } from "@/components/Invoices/SuggestCompany"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -224,11 +224,11 @@ function InvoiceDetail() {
   }
 
   const editable = invoice.can_delete && !parsingInProgress
-  const suggestVisible =
-    invoice.can_delete &&
-    !invoice.company &&
-    !parsingInProgress &&
-    Boolean(invoice.supplier_name || invoice.supplier_ico)
+  const recipientName =
+    invoice.recipient_name ??
+    (invoice.recipient_ico
+      ? `${t("invoice.recipientFallback")} (IČO ${invoice.recipient_ico})`
+      : null)
   const companyAccounts = (
     invoice.company?.bank_accounts?.length
       ? invoice.company.bank_accounts.map((row) => row.account ?? row.iban)
@@ -300,9 +300,18 @@ function InvoiceDetail() {
         </Alert>
       )}
 
-      {suggestVisible && (
-        <SuggestCompany invoice={invoice} onSuccess={invalidate} />
-      )}
+      {invoice.can_delete &&
+        !invoice.company &&
+        !parsingInProgress &&
+        recipientName && (
+          <Alert data-testid="recipient-alert">
+            <Building2 className="size-4" />
+            <AlertTitle>{t("invoice.recipientTitle")}</AlertTitle>
+            <AlertDescription>
+              {t("invoice.recipientText", { name: recipientName })}
+            </AlertDescription>
+          </Alert>
+        )}
 
       {invoice.state === "exported" && (
         <Alert className="border-green-500/40 bg-green-500/10">
@@ -363,8 +372,8 @@ function InvoiceDetail() {
                 {invoice.company.address}
               </p>
             )}
-            {/* "add firm" must stay reachable even without parsed supplier */}
-            {invoice.can_delete && !invoice.company && !suggestVisible && (
+            {/* "add our company" must stay reachable even without recipient */}
+            {invoice.can_delete && !invoice.company && (
               <div>
                 <AddCompanyForInvoice
                   invoice={invoice}

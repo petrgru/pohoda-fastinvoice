@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -23,7 +24,6 @@ from typing import Any, Literal
 
 import httpx
 from pypdf import PdfReader
-from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.models import (  # noqa: F401 (re-export)
@@ -128,8 +128,10 @@ _SYSTEM_PROMPT = (
     "uveď samostatný řádek pro každou, i když jde o starší nebo cizí sazbu. "
     "Je-li část řádků v jiné měně než faktura (např. informační přepočet), "
     "vypň u nich pole currency; 0% plnění (MPO, reverse charge) má "
-    'vat_rate "0%" a tax_price 0. Pokud pole nemůžeš spolehlivě '
-    "určit, nech ho null. Žádná data nevymýšlej."
+    'vat_rate "0%" a tax_price 0. Doklad obsahuje i příjemce (odběratele, '
+    "zákazníka) – vyplň recipient_name/recipient_ico/recipient_dic podle jeho "
+    "bloku; recipient je firma, které byl doklad vystaven. Pokud pole nemůžeš "
+    "spolehlivě určit, nech ho null. Žádná data nevymýšlej."
 )
 
 
@@ -296,6 +298,9 @@ _MERGE_FIELDS = (
     "supplier_bank_account",
     "supplier_iban",
     "supplier_bank_accounts",
+    "recipient_name",
+    "recipient_ico",
+    "recipient_dic",
     "document_type",
     "issue_date",
     "delivery_date",
@@ -489,6 +494,61 @@ def _supplier_identity(text: str) -> tuple[str | None, str | None, str | None]:
     best = min(candidates, key=lambda item: item[0])
     name, ico, dic = best[1], best[2], best[3]
     # combine with the other identification kind when both point to the seller
+    if dic is None:
+        dic_candidates = [c for c in candidates if c[3]]
+        if dic_candidates:
+            dic = min(dic_candidates, key=lambda item: item[0])[3]
+    if ico is None:
+        ico_candidates = [c for c in candidates if c[2]]
+        if ico_candidates:
+            ico = min(ico_candidates, key=lambda item: item[0])[2]
+    return name, ico, dic
+
+
+def _recipient_identity(text: str) -> tuple[str | None, str | None, str | None]:
+    """Return (name, ico, dic) of the buyer, keeping only buyer-labelled blocks.
+
+    The inverse of :func:`_supplier_identity`: an identification number counts
+    only when the nearest party label above it is a buyer one, so documents
+    without an explicit buyer block yield no recipient at all (conservative).
+    """
+    dic_matches = list(_DIC_RE.finditer(text)) or list(_BARE_DIC_RE.finditer(text))
+    matches: list[tuple[Any, int, int, str]] = [
+        (m, 0, m.start(), m.group(1)) for m in _ICO_RE.finditer(text)
+    ]
+    matches += [
+        (m, 1, m.start(), m.group(1).replace(" ", "").upper()) for m in dic_matches
+    ]
+    candidates: list[
+        tuple[tuple[int, int, int], str | None, str | None, str | None]
+    ] = []
+    for _match, kind, start, value in matches:
+        window = text[max(0, start - 320) : start]
+        buyer = list(_BUYER_LABEL_RE.finditer(window))
+        seller = list(_SELLER_LABEL_RE.finditer(window))
+        if not buyer or (seller and seller[-1].start() > buyer[-1].start()):
+            continue  # not inside a buyer-labelled block
+        name = None
+        corp_lines = list(_CORP_LINE_RE.finditer(window))
+        if corp_lines:
+            name = (
+                re.sub(
+                    r"^(?:společnost|odb[ěe]ratel|p[řr][íi]jemce|"
+                    r"z[áa]kazn[íi]k|customer)\s*[:.]?\s*",
+                    "",
+                    corp_lines[-1].group(1),
+                    flags=re.IGNORECASE,
+                ).strip(" ,:")[:200]
+                or None
+            )
+        rank = (0 if name else 1, kind, start)
+        candidates.append(
+            (rank, name, value if kind == 0 else None, value if kind == 1 else None)
+        )
+    if not candidates:
+        return None, None, None
+    best = min(candidates, key=lambda item: item[0])
+    name, ico, dic = best[1], best[2], best[3]
     if dic is None:
         dic_candidates = [c for c in candidates if c[3]]
         if dic_candidates:
@@ -699,6 +759,7 @@ def rule_extract(text: str) -> ParsedInvoice | None:
             break
 
     supplier_name, supplier_ico, supplier_dic = _supplier_identity(text)
+    recipient_name, recipient_ico, recipient_dic = _recipient_identity(text)
 
     # payment account rows, each paired with the nearest IBAN around it
     ibans: list[list[Any]] = [
@@ -787,6 +848,9 @@ def rule_extract(text: str) -> ParsedInvoice | None:
             "supplier_ico": supplier_ico,
             "supplier_dic": supplier_dic,
             "supplier_bank_accounts": rows or None,
+            "recipient_name": recipient_name,
+            "recipient_ico": recipient_ico,
+            "recipient_dic": recipient_dic,
             "document_type": document_type,
             "issue_date": _find_labeled_date(
                 text,
@@ -833,6 +897,9 @@ def normalize_parsed(parsed: ParsedInvoice) -> ParsedInvoice:
     parsed.supplier_ico = _only_digits(parsed.supplier_ico) or None
     if parsed.supplier_dic:
         parsed.supplier_dic = parsed.supplier_dic.replace(" ", "").upper()
+    parsed.recipient_ico = _only_digits(parsed.recipient_ico) or None
+    if parsed.recipient_dic:
+        parsed.recipient_dic = parsed.recipient_dic.replace(" ", "").upper()
     if parsed.supplier_bank_account:
         parsed.supplier_bank_account = normalize_bank_account(
             parsed.supplier_bank_account
@@ -866,26 +933,30 @@ def _dic_digits(value: str | None) -> str:
 
 
 def match_company(
-    session: Session,
+    companies: Sequence[Company],
     ico: str | None,
     dic: str | None,
     name: str | None,
 ) -> Company | None:
-    """Find the one active company matching parsed supplier data, if unambiguous."""
-    companies = session.exec(select(Company).where(Company.is_active == True)).all()  # noqa: E712
+    """Find the one company matching the parsed recipient data, if unambiguous.
+
+    `companies` are the candidates the uploader may assign to (their member
+    companies), so a document can never leak into a foreign company.
+    """
+    active = [c for c in companies if c.is_active]
     if ico:
-        matches = [c for c in companies if _only_digits(c.ico) == ico]
+        matches = [c for c in active if _only_digits(c.ico) == ico]
         if len(matches) == 1:
             return matches[0]
     dic_digits = _dic_digits(dic)
     if dic_digits:
-        matches = [c for c in companies if _dic_digits(c.dic) == dic_digits]
+        matches = [c for c in active if _dic_digits(c.dic) == dic_digits]
         if len(matches) == 1:
             return matches[0]
     if name:
         scored = [
             (difflib.SequenceMatcher(None, name.lower(), c.name.lower()).ratio(), c)
-            for c in companies
+            for c in active
         ]
         best = [c for score, c in scored if score >= 0.85]
         if len(best) == 1:

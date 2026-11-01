@@ -71,6 +71,8 @@ services:
       SMTP_HOST: "mailpit"
       SMTP_PORT: "1025"
       SMTP_TLS: "false"
+      # e2e tests simulate the Pohoda connector against the dev instance
+      EXPORT_API_KEY: ${EXPORT_API_KEY:-}
 
   mailpit:
     image: axllent/mailpit
@@ -100,5 +102,7 @@ services:
     volumes:
       - ./frontend/blob-report:/app/frontend/blob-report
       - ./frontend/test-results:/app/frontend/test-results
+      # real invoice samples stay out of the image (local-only, gitignored)
+      - ./test_data:/app/test_data:ro
     ports:
       - 9323:9323

@@ -11,7 +11,6 @@ import {
   CompanyFields,
   type CompanyFormData,
   createCompanySchema,
-  invoiceExtraAccounts,
   toBankAccountRows,
 } from "@/components/Companies/AddCompany"
 import { Button } from "@/components/ui/button"
@@ -30,9 +29,9 @@ import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
 /**
- * "Add company" for an invoice without an assigned company – works even when
- * parsing produced no supplier data (empty form) and prefills everything the
- * invoice has (name, IČO, DIČ, account + IBAN, VAT lookup fills the rest).
+ * "Add our company" for an invoice without an assigned recipient – prefilled
+ * with the recipient detected on the document (bank accounts are the user's
+ * own and are typed in manually).
  */
 export function AddCompanyForInvoice({
   invoice,
@@ -56,13 +55,13 @@ export function AddCompanyForInvoice({
     resolver: zodResolver(createCompanySchema(t)),
     mode: "onBlur",
     defaultValues: {
-      name: invoice.supplier_name ?? "",
-      ico: invoice.supplier_ico ?? "",
-      dic: invoice.supplier_dic ?? "",
+      name: invoice.recipient_name ?? "",
+      ico: invoice.recipient_ico ?? "",
+      dic: invoice.recipient_dic ?? "",
       address: "",
-      bank_account: invoice.supplier_bank_account ?? "",
-      iban: invoice.supplier_iban ?? "",
-      other_accounts: invoiceExtraAccounts(invoice),
+      bank_account: "",
+      iban: "",
+      other_accounts: [],
       note: "",
     },
   })
@@ -106,13 +105,13 @@ export function AddCompanyForInvoice({
         onClick={() => {
           setDuplicateIco(false)
           form.reset({
-            name: invoice.supplier_name ?? "",
-            ico: invoice.supplier_ico ?? "",
-            dic: invoice.supplier_dic ?? "",
+            name: invoice.recipient_name ?? "",
+            ico: invoice.recipient_ico ?? "",
+            dic: invoice.recipient_dic ?? "",
             address: "",
-            bank_account: invoice.supplier_bank_account ?? "",
-            iban: invoice.supplier_iban ?? "",
-            other_accounts: invoiceExtraAccounts(invoice),
+            bank_account: "",
+            iban: "",
+            other_accounts: [],
             note: "",
           })
           setOpen(true)
