@@ -147,6 +147,11 @@ def reindex_all(session: Session) -> int:
     if not settings.MEILISEARCH_ENABLED:
         return 0
     _ensure_index()
+    # drop first so documents of deleted invoices cannot linger as ghosts
+    _request("DELETE", f"/indexes/{INDEX}")
+    global _index_ready  # noqa: PLW0603 - the index object is gone
+    _index_ready = False
+    _ensure_index()
     invoices = session.exec(select(Invoice)).all()
     documents = [_document(session, invoice) for invoice in invoices]
     for chunk_start in range(0, len(documents), 500):

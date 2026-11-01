@@ -600,6 +600,37 @@ def test_search_falls_back_when_meilisearch_down(
     assert any(item["id"] == str(invoice.id) for item in response.json()["data"])
 
 
+def test_search_falls_back_on_empty_meilisearch_index(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """An empty/stale Meilisearch index must not hide invoices from the DB."""
+    from app.core.config import settings
+    from app.services import search_index
+
+    invoice = create_invoice(db)
+
+    class EmptyResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"hits": [], "estimatedTotalHits": 0}
+
+    monkeypatch.setattr(settings, "MEILISEARCH_ENABLED", True)
+    monkeypatch.setattr(search_index, "_index_ready", False)
+    monkeypatch.setattr(search_index, "_request", lambda *a, **k: EmptyResponse())
+    response = client.get(
+        "/api/v1/invoices",
+        params={"q": invoice.invoice_number},
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    assert any(item["id"] == str(invoice.id) for item in response.json()["data"])
+
+
 def test_invoice_stats_buckets(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ):

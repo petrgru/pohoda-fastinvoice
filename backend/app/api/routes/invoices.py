@@ -133,7 +133,9 @@ def list_invoices(
         conditions.append(col(Invoice.company_id) == company_id)
     if q and settings.MEILISEARCH_ENABLED:
         # relevance-ranked hits from Meilisearch; Postgres filters out any
-        # documents the mirror has not caught up with yet
+        # documents the mirror has not caught up with yet. When the mirror
+        # yields nothing usable (empty or stale index, deleted documents)
+        # its answer is not trusted and the Postgres query below runs.
         ranked = search_index.search_ids(
             q, state=state, company_id=company_id, limit=limit, offset=skip
         )
@@ -147,10 +149,11 @@ def list_invoices(
                 rows = list(session.exec(ranked_query).all())
                 order = {hit: position for position, hit in enumerate(ids)}
                 rows = sorted(rows, key=lambda row: order.get(row.id, len(ids)))
-            return InvoicesPublic(
-                data=[invoice_service.to_public(session, row) for row in rows],
-                count=count,
-            )
+            if rows:
+                return InvoicesPublic(
+                    data=[invoice_service.to_public(session, row) for row in rows],
+                    count=max(count - (len(ids) - len(rows)), len(rows)),
+                )
     if q:
         tsq = func.plainto_tsquery("simple", q)
         digits = "".join(char for char in q if char.isdigit())

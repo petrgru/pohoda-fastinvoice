@@ -110,6 +110,8 @@ def change_state(
         user=user,
         details={"from": current.value, "to": new_state.value, "note": note},
     )
+    # state is a Meilisearch filter attribute, keep the mirror current
+    search_index.sync(session, invoice)
     return invoice
 
 

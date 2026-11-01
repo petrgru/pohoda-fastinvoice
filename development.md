@@ -90,8 +90,10 @@ docker run -p 7700:7700 -e MEILI_MASTER_KEY=fastinvoice-meili-dev-key getmeili/m
 ```
 
 and put `MEILISEARCH_MASTER_KEY=fastinvoice-meili-dev-key` in the `.env` file.
-Rebuild the index after (re)installing with
-`cd backend && uv run python app/reindex_search.py`. Set
+Never run a second instance (e.g. with `docker run`) alongside the compose
+service – the backend would index a different, empty database. Rebuild both
+index layers (Postgres vectors + Meilisearch documents) after (re)installing
+with `cd backend && uv run python scripts/reindex_search.py`. Set
 `MEILISEARCH_ENABLED=false` to disable the engine entirely.
 
 ## Development-Only Features (`DEVELOP=yes`)
