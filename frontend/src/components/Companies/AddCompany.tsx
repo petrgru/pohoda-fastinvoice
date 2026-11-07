@@ -68,8 +68,13 @@ export const companySchema = z.object({
 
 export type CompanyFormData = z.infer<typeof companySchema>
 
-/** Localized schema – built per-render so messages follow the active language. */
-export const createCompanySchema = (t: (key: string) => string) =>
+/** Localized schema – built per-render so messages follow the active language.
+ * The account is optional everywhere (it can be added later and the Pohoda
+ * export does not need it); its format is checked whenever anything is typed. */
+export const createCompanySchema = (
+  t: (key: string) => string,
+  { requireAccount = false } = {},
+) =>
   companySchema.extend({
     name: z.string().min(1, t("companyFields.errName")),
     ico: z.string().regex(/^\d{8}$/, t("companyFields.errIco")),
@@ -82,9 +87,9 @@ export const createCompanySchema = (t: (key: string) => string) =>
       ),
     bank_account: z
       .string()
-      .min(1, t("companyFields.errAccount"))
+      .min(requireAccount ? 1 : 0, t("companyFields.errAccount"))
       .refine(
-        (value) => BANK_ACCOUNT_FORMAT.test(value.trim()),
+        (value) => !value.trim() || BANK_ACCOUNT_FORMAT.test(value.trim()),
         t("companyFields.errAccountFormat"),
       ),
     iban: z
@@ -191,6 +196,7 @@ export const CompanyFields = ({
   control: rawControl,
   disabled,
   autoLookup = false,
+  requireAccount = false,
 }: {
   // akceptuje i rozšířené schéma (EditCompany přidává is_active)
   control:
@@ -199,6 +205,8 @@ export const CompanyFields = ({
   disabled?: boolean
   /** Look the prefilled DIČ up in the registry as soon as the fields mount. */
   autoLookup?: boolean
+  /** Render the account as mandatory (asterisk, no optional hint). */
+  requireAccount?: boolean
 }) => {
   const { t } = useTranslation()
   const control = rawControl as Control<CompanyFormData>
@@ -417,7 +425,9 @@ export const CompanyFields = ({
               <FormItem>
                 <FormLabel>
                   {t("companyFields.account")}{" "}
-                  <span className="text-destructive">*</span>
+                  {requireAccount && (
+                    <span className="text-destructive">*</span>
+                  )}
                 </FormLabel>
                 <FormControl>
                   <Input
@@ -426,6 +436,11 @@ export const CompanyFields = ({
                     disabled={disabled}
                   />
                 </FormControl>
+                {!requireAccount && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("companyFields.accountOptionalHint")}
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )}

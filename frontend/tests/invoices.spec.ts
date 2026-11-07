@@ -189,11 +189,11 @@ test.describe("Invoice workflow", () => {
     await expect(dialog).toBeVisible()
     await dialog.getByPlaceholder("Název firmy").fill(`Naše Firma ${ico}`)
     await dialog.getByPlaceholder("8 číslic").fill(randomIco())
-    // the account is required – confirm is blocked empty
+    // the account is optional – a malformed value blocks, an empty one saves
+    await dialog.getByPlaceholder("123456789/0100").fill("ucet/1234")
     await page.getByTestId("add-company-for-invoice-confirm").click()
-    await expect(page.getByText("Číslo účtu je povinné")).toBeVisible()
-    await dialog.getByPlaceholder("123456789/0100").fill("123456789/0100")
-
+    await expect(page.getByText(/Zadejte účet ve formátu/)).toBeVisible()
+    await dialog.getByPlaceholder("123456789/0100").fill("")
     await page.getByTestId("add-company-for-invoice-confirm").click()
     await expect(
       page.getByTestId("add-company-for-invoice-button"),

@@ -875,7 +875,7 @@ export type RecipientCompanyCreate = {
     /**
      * Bank Account
      */
-    bank_account: string;
+    bank_account?: string | null;
     /**
      * Note
      */

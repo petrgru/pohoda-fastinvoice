@@ -239,6 +239,8 @@ class RecipientCompanyBase(SQLModel):
         if value is None:
             return value
         account = normalize_bank_account(value)
+        if not account:
+            return None  # blanking the account is allowed – it can be added later
         if account.startswith("CZ"):  # IBAN – formát ověří až koncová aplikace
             if re.fullmatch(r"CZ\d{22}", account):  # CZ + dvojčíslí + 20 číslic
                 return account
@@ -303,9 +305,9 @@ class SupplierBankAccount(BankAccountBase):
 
 
 class RecipientCompanyCreate(RecipientCompanyBase):
-    # Manual company entry requires every field except DIČ; the shared base
-    # keeps them nullable so existing rows and the Pohoda sync stay tolerant.
-    bank_account: str = Field(max_length=40)
+    # Manual company entry requires name and IČO only; the bank account can be
+    # added later (companies created from a document usually do not know it).
+    bank_account: str | None = Field(default=None, max_length=40)
     bank_accounts: list[BankAccountCreate] | None = None
 
     @field_validator("bank_accounts")

@@ -143,6 +143,7 @@
     "icoPlaceholder": "8 digits",
     "dic": "Tax ID",
     "account": "Account number",
+    "accountOptionalHint": "optional – you can add it later",
     "accountPlaceholder": "123456789/0100",
     "note": "Note",
     "errName": "Name is required",

@@ -143,6 +143,7 @@
     "icoPlaceholder": "8 číslic",
     "dic": "DIČ",
     "account": "Číslo účtu",
+    "accountOptionalHint": "nepovinné – doplnit lze později",
     "accountPlaceholder": "123456789/0100",
     "note": "Poznámka",
     "errName": "Název je povinný",

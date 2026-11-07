@@ -143,6 +143,7 @@
     "icoPlaceholder": "8 Ziffern",
     "dic": "Steuernr.",
     "account": "Kontonummer",
+    "accountOptionalHint": "optional – später ergänzbar",
     "accountPlaceholder": "123456789/0100",
     "note": "Anmerkung",
     "errName": "Name ist erforderlich",

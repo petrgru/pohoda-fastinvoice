@@ -355,6 +355,23 @@ def test_create_company_for_invoice(
     assert body["queue_reasons"] == ["queue.reason.awaiting_approval"]
 
 
+def test_create_company_for_invoice_without_bank_account(
+    client: TestClient, superuser_token_headers: dict[str, str], storage_dir, parsing_ok
+):
+    """From-document companies rarely know their own account – saving is OK."""
+    created = upload(client, superuser_token_headers).json()
+    response = client.post(
+        f"/api/v1/invoices/{created['id']}/recipient-company/create",
+        headers=superuser_token_headers,
+        json={
+            "name": "Bez Účtu s.r.o.",
+            "ico": str(random.randrange(10000000, 99999999)),
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["company"]["bank_account"] is None
+
+
 def test_create_company_for_invoice_duplicate_ico(
     client: TestClient,
     superuser_token_headers: dict[str, str],
@@ -433,16 +450,18 @@ def test_upload_duplicate_rejected(
     assert len(stored) == 1
 
 
-def test_create_company_requires_bank_account(
+def test_create_company_bank_account_is_optional(
     client: TestClient, superuser_token_headers: dict[str, str]
 ):
+    """The account used to be required; it can be filled in later now."""
     ico = str(random.randrange(10000000, 99999999))
     response = client.post(
         "/api/v1/companies",
         headers=superuser_token_headers,
         json={"name": "Bez Učtu s.r.o.", "ico": ico},
     )
-    assert response.status_code == 422
+    assert response.status_code == 201
+    assert response.json()["bank_account"] is None
 
 
 def test_bank_account_with_prefix(

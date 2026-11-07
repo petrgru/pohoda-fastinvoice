@@ -40,6 +40,20 @@ def test_create_and_get_company(
     assert detail.json()["name"] == "Novak Trading a.s."
 
 
+def test_create_company_blank_bank_account_is_none(
+    client: TestClient, superuser_token_headers: dict[str, str]
+):
+    """A blank account is accepted as None – it can be added later."""
+    ico = str(random.randrange(10000000, 99999999))
+    response = client.post(
+        API,
+        headers=superuser_token_headers,
+        json={"name": "Bez Účtu Trading s.r.o.", "ico": ico, "bank_account": ""},
+    )
+    assert response.status_code == 201
+    assert response.json()["bank_account"] is None
+
+
 def test_create_company_invalid_ico(
     client: TestClient, superuser_token_headers: dict[str, str]
 ):
