@@ -165,7 +165,9 @@ test.describe("Invoice workflow", () => {
     page,
   }) => {
     test.slow()
-    test.setTimeout(300_000)
+    // parsing this minimal document needs the LLM, whose two attempts may
+    // together wait up to LLM_STRUCTURED_TIMEOUT + LLM_TIMEOUT (330 s)
+    test.setTimeout(400_000)
 
     const ico = randomIco()
     // the document names only a supplier – no recipient block to detect
@@ -177,7 +179,7 @@ test.describe("Invoice workflow", () => {
     ])
     await page.goto(`/invoices/${invoice.id}`)
     await expect(page.getByTestId("state-badge")).toHaveText("Ke kontrole", {
-      timeout: 180_000,
+      timeout: 340_000,
     })
 
     // no recipient detected on the document → no hint, but "add company" works
