@@ -50,7 +50,7 @@ Build the frontend from the `frontend` directory:
 bun run build
 ```
 
-The build is written to `backend/app/frontend` and served by FastAPI at <http://localhost:8000>. Rebuild the frontend after making frontend changes.
+The build is written to `backend/app/frontend` and served by FastAPI at <http://localhost:8000>. Rebuild the frontend after making frontend changes. To rebuild automatically on every save while working against the FastAPI-served app, run `bun run dev:served` from the `frontend` directory instead of a manual rebuild (stop it with Ctrl+C when done).
 
 ## Full Stack with Docker Compose
 
