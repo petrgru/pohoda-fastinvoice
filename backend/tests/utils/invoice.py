@@ -9,10 +9,10 @@ from uuid import UUID, uuid4
 from sqlmodel import Session
 
 from app.models import (
-    Company,
     Invoice,
     InvoiceState,
     ParsedInvoice,
+    RecipientCompany,
     VatItem,
 )
 from app.services import invoices as invoice_service
@@ -99,14 +99,14 @@ def parsed_sample(ico: str | None = None) -> ParsedInvoice:
     )
 
 
-def create_company(session: Session, **overrides: object) -> Company:
+def create_company(session: Session, **overrides: object) -> RecipientCompany:
     data: dict = {
         "name": f"Test Supplier {uuid4().hex[:8]}",
         "ico": str(random.randrange(10000000, 99999999)),
         "bank_account": "123456789/0100",
     }
     data.update(overrides)
-    company = Company(**data)  # type: ignore[arg-type]
+    company = RecipientCompany(**data)  # type: ignore[arg-type]
     session.add(company)
     session.commit()
     session.refresh(company)
@@ -117,7 +117,7 @@ def create_invoice(
     session: Session,
     state: InvoiceState = InvoiceState.NEEDS_REVIEW,
     *,
-    company: Company | None = None,
+    company: RecipientCompany | None = None,
     approved_by: UUID | None = None,
     **overrides: object,
 ) -> Invoice:
@@ -139,7 +139,7 @@ def create_invoice(
         "total_without_vat": Decimal("1000.00"),
     }
     if company is not None:
-        data["company_id"] = company.id
+        data["recipient_company_id"] = company.id
     if approved_by is not None:
         from app.models import get_datetime_utc
 

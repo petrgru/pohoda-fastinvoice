@@ -55,9 +55,12 @@ export const makePdfBytes = (lines: string[]): Uint8Array => {
   let y = 750
   for (const line of lines) {
     const escaped = line
-      .replaceAll("\\", "\\\\")
-      .replaceAll("(", "\\(")
-      .replaceAll(")", "\\)")
+      .split("\\")
+      .join("\\\\")
+      .split("(")
+      .join("\\(")
+      .split(")")
+      .join("\\)")
     content.push(`1 0 0 1 50 ${y} Tm (${escaped}) Tj`)
     y -= 16
   }
@@ -105,9 +108,10 @@ export const uploadInvoice = async (
     ...lines,
     `unique-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   ])
+  // the Uint8Array copy normalizes the buffer type for BlobPart
   form.append(
     "file",
-    new Blob([pdf], { type: "application/pdf" }),
+    new Blob([new Uint8Array(pdf)], { type: "application/pdf" }),
     "faktura-e2e.pdf",
   )
   const response = await fetch(`${apiBase}/api/v1/invoices/upload`, {
@@ -123,7 +127,11 @@ export const uploadInvoice = async (
 
 export const getInvoice = async (
   invoiceId: string,
-): Promise<{ id: string; state: string; company_id: string | null }> => {
+): Promise<{
+  id: string
+  state: string
+  recipient_company_id: string | null
+}> => {
   const response = await fetch(`${apiBase}/api/v1/invoices/${invoiceId}`, {
     headers: await authHeaders(),
   })
@@ -137,7 +145,7 @@ export const getInvoice = async (
  *  With a real LLM backend parsing can take tens of seconds. */
 export const waitForParsed = async (
   invoiceId: string,
-): Promise<{ state: string; company_id: string | null }> => {
+): Promise<{ state: string; recipient_company_id: string | null }> => {
   for (let attempt = 0; attempt < 120; attempt++) {
     const invoice = await getInvoice(invoiceId)
     if (invoice.state !== "uploaded" && invoice.state !== "parsing") {

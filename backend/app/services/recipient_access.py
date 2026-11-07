@@ -10,15 +10,16 @@ import secrets
 import uuid
 
 from fastapi import HTTPException
+from sqlalchemy import ColumnElement
 from sqlmodel import Session, col, or_, select
 
 from app.core.config import settings
 from app.models import (
-    Company,
-    CompanyApiKey,
-    CompanyMembership,
     Invoice,
     MembershipRole,
+    RecipientApiKey,
+    RecipientCompany,
+    RecipientMembership,
     User,
     UserCreate,
     get_datetime_utc,
@@ -28,38 +29,38 @@ API_KEY_PREFIX = "fik_"
 
 
 def role_in_company(
-    session: Session, user: User, company_id: uuid.UUID
+    session: Session, user: User, recipient_company_id: uuid.UUID
 ) -> MembershipRole | None:
     if user.is_superuser:
         return MembershipRole.ADMIN
     link = session.exec(
-        select(CompanyMembership).where(
-            col(CompanyMembership.user_id) == user.id,
-            col(CompanyMembership.company_id) == company_id,
+        select(RecipientMembership).where(
+            col(RecipientMembership.user_id) == user.id,
+            col(RecipientMembership.recipient_company_id) == recipient_company_id,
         )
     ).first()
     return MembershipRole(link.role) if link else None
 
 
 def member_company_ids(session: Session, user: User) -> list[uuid.UUID] | None:
-    """Company ids the user belongs to; None means "all companies"."""
+    """RecipientCompany ids the user belongs to; None means "all companies"."""
     if user.is_superuser:
         return None
     return list(
         session.exec(
-            select(CompanyMembership.company_id).where(
-                col(CompanyMembership.user_id) == user.id
+            select(RecipientMembership.recipient_company_id).where(
+                col(RecipientMembership.user_id) == user.id
             )
         ).all()
     )
 
 
-def candidate_companies(session: Session, user: User) -> list[Company]:
+def candidate_companies(session: Session, user: User) -> list[RecipientCompany]:
     """Active companies an uploaded document may be assigned to."""
     if user.is_superuser:
         return list(
             session.exec(
-                select(Company).where(col(Company.is_active) == True)  # noqa: E712
+                select(RecipientCompany).where(col(RecipientCompany.is_active) == True)  # noqa: E712
             ).all()
         )
     ids = member_company_ids(session, user) or []
@@ -67,15 +68,15 @@ def candidate_companies(session: Session, user: User) -> list[Company]:
         return []
     return list(
         session.exec(
-            select(Company).where(
-                col(Company.id).in_(ids),
-                col(Company.is_active) == True,  # noqa: E712
+            select(RecipientCompany).where(
+                col(RecipientCompany.id).in_(ids),
+                col(RecipientCompany.is_active) == True,  # noqa: E712
             )
         ).all()
     )
 
 
-def sole_company_for(session: Session, user: User) -> Company | None:
+def sole_company_for(session: Session, user: User) -> RecipientCompany | None:
     """The one company a member belongs to; None with zero or several of them.
 
     Superusers have no stored memberships (they are admin everywhere), so they
@@ -84,23 +85,26 @@ def sole_company_for(session: Session, user: User) -> Company | None:
     ids = member_company_ids(session, user)
     if ids is None or len(ids) != 1:
         return None
-    return session.get(Company, ids[0])
+    return session.get(RecipientCompany, ids[0])
 
 
-def invoice_filter(session: Session, user: User):
+def invoice_filter(session: Session, user: User) -> ColumnElement[bool] | None:
     """SQL condition limiting invoices to what the user may see (or None)."""
     ids = member_company_ids(session, user)
     if ids is None:
         return None
-    return or_(col(Invoice.company_id).in_(ids), col(Invoice.uploaded_by_id) == user.id)
+    return or_(
+        col(Invoice.recipient_company_id).in_(ids),
+        col(Invoice.uploaded_by_id) == user.id,
+    )
 
 
-def company_filter(session: Session, user: User):
+def company_filter(session: Session, user: User) -> ColumnElement[bool] | None:
     """SQL condition limiting companies to the user's memberships (or None)."""
     ids = member_company_ids(session, user)
     if ids is None:
         return None
-    return col(Company.id).in_(ids)
+    return col(RecipientCompany.id).in_(ids)
 
 
 def ensure_invoice_access(
@@ -112,12 +116,12 @@ def ensure_invoice_access(
     """403 unless the user may act on this invoice with at least `min_role`."""
     if user.is_superuser:
         return
-    if invoice.company_id is None:
+    if invoice.recipient_company_id is None:
         # unclassified: only the uploader may touch it
         if invoice.uploaded_by_id != user.id:
             raise HTTPException(status_code=403, detail="errors.forbidden")
         return
-    role = role_in_company(session, user, invoice.company_id)
+    role = role_in_company(session, user, invoice.recipient_company_id)
     if role is None or (
         min_role is MembershipRole.ADMIN and role is not MembershipRole.ADMIN
     ):
@@ -127,10 +131,10 @@ def ensure_invoice_access(
 def ensure_company_access(
     session: Session,
     user: User,
-    company_id: uuid.UUID,
+    recipient_company_id: uuid.UUID,
     min_role: MembershipRole = MembershipRole.EDITOR,
 ) -> MembershipRole:
-    role = role_in_company(session, user, company_id)
+    role = role_in_company(session, user, recipient_company_id)
     if role is None or (
         min_role is MembershipRole.ADMIN and role is not MembershipRole.ADMIN
     ):
@@ -139,34 +143,36 @@ def ensure_company_access(
 
 
 def ensure_company_selectable(
-    session: Session, user: User, company_id: uuid.UUID
+    session: Session, user: User, recipient_company_id: uuid.UUID
 ) -> None:
     """A company may be attached to an invoice only when the user belongs to it."""
     if user.is_superuser:
         return
-    if company_id not in (member_company_ids(session, user) or []):
+    if recipient_company_id not in (member_company_ids(session, user) or []):
         raise HTTPException(status_code=403, detail="errors.forbidden")
 
 
 def admin_link(
-    session: Session, user: User, company_id: uuid.UUID
-) -> CompanyMembership | None:
+    session: Session, user: User, recipient_company_id: uuid.UUID
+) -> RecipientMembership | None:
     return session.exec(
-        select(CompanyMembership).where(
-            col(CompanyMembership.user_id) == user.id,
-            col(CompanyMembership.company_id) == company_id,
-            col(CompanyMembership.role) == MembershipRole.ADMIN.value,
+        select(RecipientMembership).where(
+            col(RecipientMembership.user_id) == user.id,
+            col(RecipientMembership.recipient_company_id) == recipient_company_id,
+            col(RecipientMembership.role) == MembershipRole.ADMIN.value,
         )
     ).first()
 
 
-def add_admin_member(session: Session, user: User, company: Company) -> None:
+def add_admin_member(session: Session, user: User, company: RecipientCompany) -> None:
     """Make `user` an admin of `company` unless they already have a role there."""
     if role_in_company(session, user, company.id) is not None:
         return
     session.add(
-        CompanyMembership(
-            user_id=user.id, company_id=company.id, role=MembershipRole.ADMIN.value
+        RecipientMembership(
+            user_id=user.id,
+            recipient_company_id=company.id,
+            role=MembershipRole.ADMIN.value,
         )
     )
 
@@ -206,11 +212,11 @@ def generate_api_key() -> tuple[str, str]:
     return plaintext, hashlib.sha256(plaintext.encode()).hexdigest()
 
 
-def resolve_api_key(session: Session, value: str) -> CompanyApiKey | None:
+def resolve_api_key(session: Session, value: str) -> RecipientApiKey | None:
     """Active key matching the secret, marking it used; None when unknown/revoked."""
     key = session.exec(
-        select(CompanyApiKey).where(
-            CompanyApiKey.key_hash == hashlib.sha256(value.encode()).hexdigest()
+        select(RecipientApiKey).where(
+            RecipientApiKey.key_hash == hashlib.sha256(value.encode()).hexdigest()
         )
     ).first()
     if key is None or key.revoked_at is not None:

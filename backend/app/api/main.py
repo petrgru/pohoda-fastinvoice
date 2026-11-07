@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     companies,
+    data,
     export,
     invoices,
     login,
@@ -18,6 +19,7 @@ api_router.include_router(utils.router)
 api_router.include_router(companies.router)
 api_router.include_router(invoices.router)
 api_router.include_router(export.router)
+api_router.include_router(data.router)
 
 
 if settings.FASTAPI_ENV == "development":

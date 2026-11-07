@@ -3,59 +3,67 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import ColumnElement, func, or_
-from sqlmodel import col, select
+from sqlmodel import Session, col, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
 from app.models import (
-    CompaniesPublic,
-    Company,
-    CompanyApiKey,
-    CompanyApiKeyCreate,
-    CompanyApiKeyCreated,
-    CompanyApiKeyPublic,
-    CompanyCreate,
-    CompanyMembership,
-    CompanyPublic,
-    CompanyUpdate,
     Invoice,
     MembershipCreate,
     MembershipPublic,
     MembershipRole,
     MembershipUpdate,
     Message,
+    RecipientApiKey,
+    RecipientApiKeyCreate,
+    RecipientApiKeyCreated,
+    RecipientApiKeyPublic,
+    RecipientCompaniesPublic,
+    RecipientCompany,
+    RecipientCompanyCreate,
+    RecipientCompanyPublic,
+    RecipientCompanyUpdate,
+    RecipientMembership,
     User,
     VatInfoPublic,
     get_datetime_utc,
 )
-from app.services import companies as company_service
-from app.services import company_access, search_index, storage, vat
 from app.services import invoices as invoice_service
+from app.services import recipient_access, search_index, storage, vat
+from app.services import recipients as recipient_service
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
 logger = logging.getLogger(__name__)
 
 
-def _get_company_or_404(session, company_id: UUID) -> Company:  # noqa: ANN001
-    company = session.get(Company, company_id)
+def _get_company_or_404(
+    session: Session, recipient_company_id: UUID
+) -> RecipientCompany:
+    company: RecipientCompany | None = session.get(
+        RecipientCompany, recipient_company_id
+    )
     if not company:
         raise HTTPException(status_code=404, detail="errors.company_not_found")
     return company
 
 
-def _with_roles(session, user, companies: list[Company]) -> list[CompanyPublic]:  # noqa: ANN001
-    """CompanyPublic items carrying the requesting user's role per company."""
+def _with_roles(
+    session: Session, user: User, companies: list[RecipientCompany]
+) -> list[RecipientCompanyPublic]:
+    """RecipientCompanyPublic items carrying the requesting user's role per company."""
     if user.is_superuser:
         roles: dict[UUID, MembershipRole] = {}
     else:
         links = session.exec(
-            select(CompanyMembership).where(col(CompanyMembership.user_id) == user.id)
+            select(RecipientMembership).where(
+                col(RecipientMembership.user_id) == user.id
+            )
         ).all()
-        roles = {link.company_id: MembershipRole(link.role) for link in links}
+        roles = {link.recipient_company_id: MembershipRole(link.role) for link in links}
     items = []
     for company in companies:
-        public = CompanyPublic.model_validate(company)
+        public = RecipientCompanyPublic.model_validate(company)
         public.my_role = (
             MembershipRole.ADMIN if user.is_superuser else roles.get(company.id)
         )
@@ -76,7 +84,7 @@ def assert_dic_valid(dic: str | None) -> None:
         logger.warning("VAT service unreachable, skipping DIČ check for %s", dic)
 
 
-@router.get("", response_model=CompaniesPublic)
+@router.get("", response_model=RecipientCompaniesPublic)
 def list_companies(
     *,
     session: SessionDep,
@@ -85,29 +93,29 @@ def list_companies(
     limit: int = 50,
     q: str | None = None,
     include_inactive: bool = False,
-) -> CompaniesPublic:
+) -> RecipientCompaniesPublic:
     conditions: list[ColumnElement[bool]] = (
-        [] if include_inactive else [col(Company.is_active) == True]  # noqa: E712
+        [] if include_inactive else [col(RecipientCompany.is_active) == True]  # noqa: E712
     )
-    if (visible := company_access.company_filter(session, current_user)) is not None:
+    if (visible := recipient_access.company_filter(session, current_user)) is not None:
         conditions.append(visible)
     if q:
         digits = "".join(char for char in q if char.isdigit())
         ilike = f"%{q}%"
-        clauses = [col(Company.name).ilike(ilike)]
+        clauses = [col(RecipientCompany.name).ilike(ilike)]
         if digits:
-            clauses.append(col(Company.ico).like(f"%{digits}%"))
+            clauses.append(col(RecipientCompany.ico).like(f"%{digits}%"))
         conditions.append(or_(*clauses))
-    query = select(Company)
-    count_query = select(func.count()).select_from(Company)
+    query = select(RecipientCompany)
+    count_query = select(func.count()).select_from(RecipientCompany)
     for condition in conditions:
         query = query.where(condition)
         count_query = count_query.where(condition)
     count = session.exec(count_query).one()
     items = session.exec(
-        query.order_by(col(Company.name).asc()).offset(skip).limit(limit)
+        query.order_by(col(RecipientCompany.name).asc()).offset(skip).limit(limit)
     ).all()
-    return CompaniesPublic(
+    return RecipientCompaniesPublic(
         data=_with_roles(session, current_user, list(items)), count=count
     )
 
@@ -130,22 +138,27 @@ def get_vat_info(
     )
 
 
-@router.post("", response_model=CompanyPublic, status_code=201)
+@router.post("", response_model=RecipientCompanyPublic, status_code=201)
 def create_company(
-    *, session: SessionDep, current_user: CurrentUser, company_in: CompanyCreate
-) -> CompanyPublic:
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    company_in: RecipientCompanyCreate,
+) -> RecipientCompanyPublic:
     assert_dic_valid(company_in.dic)
     existing = session.exec(
-        select(Company).where(Company.ico == company_in.ico)
+        select(RecipientCompany).where(RecipientCompany.ico == company_in.ico)
     ).first()
     if existing:
         raise HTTPException(status_code=409, detail="errors.company_ico_exists")
-    company = Company.model_validate(company_in.model_dump(exclude={"bank_accounts"}))
+    company = RecipientCompany.model_validate(
+        company_in.model_dump(exclude={"bank_accounts"})
+    )
     session.add(company)
     session.flush()
-    company_service.apply_bank_accounts(session, company, company_in.bank_accounts)
+    recipient_service.apply_bank_accounts(session, company, company_in.bank_accounts)
     # the creator is always an admin of a manually created company
-    company_access.add_admin_member(session, current_user, company)
+    recipient_access.add_admin_member(session, current_user, company)
     session.commit()
     invoice_service.log_audit(
         session, "company_created", company=company, user=current_user
@@ -155,28 +168,28 @@ def create_company(
     return _with_roles(session, current_user, [company])[0]
 
 
-@router.get("/{company_id}", response_model=CompanyPublic)
+@router.get("/{recipient_company_id}", response_model=RecipientCompanyPublic)
 def get_company(
     *,
     session: SessionDep,
     current_user: CurrentUser,
-    company_id: UUID,
-) -> CompanyPublic:
-    company = _get_company_or_404(session, company_id)
-    company_access.ensure_company_access(session, current_user, company.id)
+    recipient_company_id: UUID,
+) -> RecipientCompanyPublic:
+    company = _get_company_or_404(session, recipient_company_id)
+    recipient_access.ensure_company_access(session, current_user, company.id)
     return _with_roles(session, current_user, [company])[0]
 
 
-@router.put("/{company_id}", response_model=CompanyPublic)
+@router.put("/{recipient_company_id}", response_model=RecipientCompanyPublic)
 def update_company(
     *,
     session: SessionDep,
     current_user: CurrentUser,
-    company_id: UUID,
-    company_in: CompanyUpdate,
-) -> CompanyPublic:
-    company = _get_company_or_404(session, company_id)
-    company_access.ensure_company_access(
+    recipient_company_id: UUID,
+    company_in: RecipientCompanyUpdate,
+) -> RecipientCompanyPublic:
+    company = _get_company_or_404(session, recipient_company_id)
+    recipient_access.ensure_company_access(
         session, current_user, company.id, MembershipRole.ADMIN
     )
     changes = company_in.model_dump(exclude_unset=True)
@@ -186,15 +199,16 @@ def update_company(
         assert_dic_valid(changes["dic"])
     if "ico" in changes:
         clash = session.exec(
-            select(Company).where(
-                Company.ico == changes["ico"], col(Company.id) != company_id
+            select(RecipientCompany).where(
+                RecipientCompany.ico == changes["ico"],
+                col(RecipientCompany.id) != recipient_company_id,
             )
         ).first()
         if clash:
             raise HTTPException(status_code=409, detail="errors.company_ico_exists")
     for field, value in changes.items():
         setattr(company, field, value)
-    company_service.apply_bank_accounts(session, company, bank_rows)
+    recipient_service.apply_bank_accounts(session, company, bank_rows)
     company.updated_at = get_datetime_utc()
     session.add(company)
     invoice_service.log_audit(
@@ -209,22 +223,22 @@ def update_company(
     if "name" in changes:
         # the company name is part of the invoice search documents
         for invoice in session.exec(
-            select(Invoice).where(Invoice.company_id == company_id)
+            select(Invoice).where(Invoice.recipient_company_id == recipient_company_id)
         ).all():
             search_index.sync(session, invoice)
     return _with_roles(session, current_user, [company])[0]
 
 
-@router.delete("/{company_id}", response_model=Message)
+@router.delete("/{recipient_company_id}", response_model=Message)
 def delete_company(
-    *, session: SessionDep, current_user: CurrentUser, company_id: UUID
+    *, session: SessionDep, current_user: CurrentUser, recipient_company_id: UUID
 ) -> Message:
-    company = _get_company_or_404(session, company_id)
-    company_access.ensure_company_access(
+    company = _get_company_or_404(session, recipient_company_id)
+    recipient_access.ensure_company_access(
         session, current_user, company.id, MembershipRole.ADMIN
     )
     linked_rows = session.exec(
-        select(Invoice).where(Invoice.company_id == company_id)
+        select(Invoice).where(Invoice.recipient_company_id == recipient_company_id)
     ).all()
     if linked_rows and not settings.DEVELOP:
         raise HTTPException(
@@ -256,7 +270,7 @@ def delete_company(
 # --- members ----------------------------------------------------------------
 
 
-def _membership_public(session, link: CompanyMembership) -> MembershipPublic:  # noqa: ANN001
+def _membership_public(session: Session, link: RecipientMembership) -> MembershipPublic:
     user = session.get(User, link.user_id)
     return MembershipPublic(
         id=link.id,
@@ -269,25 +283,27 @@ def _membership_public(session, link: CompanyMembership) -> MembershipPublic:  #
     )
 
 
-def _get_membership_or_404(session, company_id: UUID, membership_id: UUID):  # noqa: ANN001
-    link = session.get(CompanyMembership, membership_id)
-    if link is None or link.company_id != company_id:
+def _get_membership_or_404(
+    session: Session, recipient_company_id: UUID, membership_id: UUID
+) -> RecipientMembership:
+    link = session.get(RecipientMembership, membership_id)
+    if link is None or link.recipient_company_id != recipient_company_id:
         raise HTTPException(status_code=404, detail="errors.member_not_found")
     return link
 
 
 def _assert_not_last_admin(
-    session, link: CompanyMembership, new_role: MembershipRole
-) -> None:  # noqa: ANN001
+    session: Session, link: RecipientMembership, new_role: MembershipRole
+) -> None:
     if new_role is MembershipRole.ADMIN:
         return
     remaining_admins = session.exec(
         select(func.count())
-        .select_from(CompanyMembership)
+        .select_from(RecipientMembership)
         .where(
-            col(CompanyMembership.company_id) == link.company_id,
-            col(CompanyMembership.role) == MembershipRole.ADMIN.value,
-            col(CompanyMembership.id) != link.id,
+            col(RecipientMembership.recipient_company_id) == link.recipient_company_id,
+            col(RecipientMembership.role) == MembershipRole.ADMIN.value,
+            col(RecipientMembership.id) != link.id,
         )
     ).one()
     other_admin_exists = session.exec(
@@ -297,18 +313,18 @@ def _assert_not_last_admin(
         raise HTTPException(status_code=409, detail="errors.last_company_admin")
 
 
-@router.get("/{company_id}/members", response_model=list[MembershipPublic])
+@router.get("/{recipient_company_id}/members", response_model=list[MembershipPublic])
 def list_members(
-    *, session: SessionDep, current_user: CurrentUser, company_id: UUID
+    *, session: SessionDep, current_user: CurrentUser, recipient_company_id: UUID
 ) -> list[MembershipPublic]:
-    company = _get_company_or_404(session, company_id)
-    company_access.ensure_company_access(
+    company = _get_company_or_404(session, recipient_company_id)
+    recipient_access.ensure_company_access(
         session, current_user, company.id, MembershipRole.ADMIN
     )
     links = session.exec(
-        select(CompanyMembership)
-        .where(col(CompanyMembership.company_id) == company.id)
-        .order_by(col(CompanyMembership.created_at).asc())
+        select(RecipientMembership)
+        .where(col(RecipientMembership.recipient_company_id) == company.id)
+        .order_by(col(RecipientMembership.created_at).asc())
     ).all()
     members = [_membership_public(session, link) for link in links]
     if current_user.is_superuser:
@@ -328,23 +344,25 @@ def list_members(
     return members
 
 
-@router.post("/{company_id}/members", response_model=MembershipPublic, status_code=201)
+@router.post(
+    "/{recipient_company_id}/members", response_model=MembershipPublic, status_code=201
+)
 def add_member(
     *,
     session: SessionDep,
     current_user: CurrentUser,
-    company_id: UUID,
+    recipient_company_id: UUID,
     member_in: MembershipCreate,
 ) -> MembershipPublic:
     """Add an existing user by e-mail; an unknown address is invited by e-mail."""
-    company = _get_company_or_404(session, company_id)
-    company_access.ensure_company_access(
+    company = _get_company_or_404(session, recipient_company_id)
+    recipient_access.ensure_company_access(
         session, current_user, company.id, MembershipRole.ADMIN
     )
     email = member_in.email.lower()
     user = session.exec(select(User).where(col(User.email) == email)).first()
     if user is None:
-        user = company_access.invite_user(session, email)
+        user = recipient_access.invite_user(session, email)
         invoice_service.log_audit(
             session,
             "member_invited",
@@ -353,15 +371,15 @@ def add_member(
             details={"email": email, "role": member_in.role.value},
         )
     existing = session.exec(
-        select(CompanyMembership).where(
-            col(CompanyMembership.user_id) == user.id,
-            col(CompanyMembership.company_id) == company.id,
+        select(RecipientMembership).where(
+            col(RecipientMembership.user_id) == user.id,
+            col(RecipientMembership.recipient_company_id) == company.id,
         )
     ).first()
     if existing:
         raise HTTPException(status_code=409, detail="errors.member_exists")
-    link = CompanyMembership(
-        user_id=user.id, company_id=company.id, role=member_in.role.value
+    link = RecipientMembership(
+        user_id=user.id, recipient_company_id=company.id, role=member_in.role.value
     )
     session.add(link)
     session.commit()
@@ -377,20 +395,22 @@ def add_member(
     return _membership_public(session, link)
 
 
-@router.patch("/{company_id}/members/{membership_id}", response_model=MembershipPublic)
+@router.patch(
+    "/{recipient_company_id}/members/{membership_id}", response_model=MembershipPublic
+)
 def update_member_role(
     *,
     session: SessionDep,
     current_user: CurrentUser,
-    company_id: UUID,
+    recipient_company_id: UUID,
     membership_id: UUID,
     member_in: MembershipUpdate,
 ) -> MembershipPublic:
-    company = _get_company_or_404(session, company_id)
-    company_access.ensure_company_access(
+    company = _get_company_or_404(session, recipient_company_id)
+    recipient_access.ensure_company_access(
         session, current_user, company.id, MembershipRole.ADMIN
     )
-    link = _get_membership_or_404(session, company_id, membership_id)
+    link = _get_membership_or_404(session, recipient_company_id, membership_id)
     _assert_not_last_admin(session, link, member_in.role)
     link.role = member_in.role.value
     session.add(link)
@@ -406,19 +426,21 @@ def update_member_role(
     return _membership_public(session, link)
 
 
-@router.delete("/{company_id}/members/{membership_id}", response_model=Message)
+@router.delete(
+    "/{recipient_company_id}/members/{membership_id}", response_model=Message
+)
 def remove_member(
     *,
     session: SessionDep,
     current_user: CurrentUser,
-    company_id: UUID,
+    recipient_company_id: UUID,
     membership_id: UUID,
 ) -> Message:
-    company = _get_company_or_404(session, company_id)
-    company_access.ensure_company_access(
+    company = _get_company_or_404(session, recipient_company_id)
+    recipient_access.ensure_company_access(
         session, current_user, company.id, MembershipRole.ADMIN
     )
-    link = _get_membership_or_404(session, company_id, membership_id)
+    link = _get_membership_or_404(session, recipient_company_id, membership_id)
     _assert_not_last_admin(session, link, MembershipRole.EDITOR)
     invoice_service.log_audit(
         session, "member_removed", company=company, user=current_user
@@ -459,39 +481,43 @@ def lookup_user_by_email(
 # --- API keys ---------------------------------------------------------------
 
 
-@router.get("/{company_id}/api-keys", response_model=list[CompanyApiKeyPublic])
+@router.get(
+    "/{recipient_company_id}/api-keys", response_model=list[RecipientApiKeyPublic]
+)
 def list_api_keys(
-    *, session: SessionDep, current_user: CurrentUser, company_id: UUID
-) -> list[CompanyApiKeyPublic]:
-    company = _get_company_or_404(session, company_id)
-    company_access.ensure_company_access(
+    *, session: SessionDep, current_user: CurrentUser, recipient_company_id: UUID
+) -> list[RecipientApiKeyPublic]:
+    company = _get_company_or_404(session, recipient_company_id)
+    recipient_access.ensure_company_access(
         session, current_user, company.id, MembershipRole.ADMIN
     )
     keys = session.exec(
-        select(CompanyApiKey)
-        .where(col(CompanyApiKey.company_id) == company.id)
-        .order_by(col(CompanyApiKey.created_at).desc())
+        select(RecipientApiKey)
+        .where(col(RecipientApiKey.recipient_company_id) == company.id)
+        .order_by(col(RecipientApiKey.created_at).desc())
     ).all()
-    return [CompanyApiKeyPublic.model_validate(k) for k in keys]
+    return [RecipientApiKeyPublic.model_validate(k) for k in keys]
 
 
 @router.post(
-    "/{company_id}/api-keys", response_model=CompanyApiKeyCreated, status_code=201
+    "/{recipient_company_id}/api-keys",
+    response_model=RecipientApiKeyCreated,
+    status_code=201,
 )
 def create_api_key(
     *,
     session: SessionDep,
     current_user: CurrentUser,
-    company_id: UUID,
-    key_in: CompanyApiKeyCreate,
-) -> CompanyApiKeyCreated:
-    company = _get_company_or_404(session, company_id)
-    company_access.ensure_company_access(
+    recipient_company_id: UUID,
+    key_in: RecipientApiKeyCreate,
+) -> RecipientApiKeyCreated:
+    company = _get_company_or_404(session, recipient_company_id)
+    recipient_access.ensure_company_access(
         session, current_user, company.id, MembershipRole.ADMIN
     )
-    plaintext, key_hash = company_access.generate_api_key()
-    key = CompanyApiKey(
-        company_id=company.id,
+    plaintext, key_hash = recipient_access.generate_api_key()
+    key = RecipientApiKey(
+        recipient_company_id=company.id,
         label=key_in.label,
         key_prefix=plaintext[:12],
         key_hash=key_hash,
@@ -507,25 +533,25 @@ def create_api_key(
     )
     session.commit()
     session.refresh(key)
-    return CompanyApiKeyCreated(
-        **CompanyApiKeyPublic.model_validate(key).model_dump(), key=plaintext
+    return RecipientApiKeyCreated(
+        **RecipientApiKeyPublic.model_validate(key).model_dump(), key=plaintext
     )
 
 
-@router.delete("/{company_id}/api-keys/{key_id}", response_model=Message)
+@router.delete("/{recipient_company_id}/api-keys/{key_id}", response_model=Message)
 def revoke_api_key(
     *,
     session: SessionDep,
     current_user: CurrentUser,
-    company_id: UUID,
+    recipient_company_id: UUID,
     key_id: UUID,
 ) -> Message:
-    company = _get_company_or_404(session, company_id)
-    company_access.ensure_company_access(
+    company = _get_company_or_404(session, recipient_company_id)
+    recipient_access.ensure_company_access(
         session, current_user, company.id, MembershipRole.ADMIN
     )
-    key = session.get(CompanyApiKey, key_id)
-    if key is None or key.company_id != company.id:
+    key = session.get(RecipientApiKey, key_id)
+    if key is None or key.recipient_company_id != company.id:
         raise HTTPException(status_code=404, detail="errors.api_key_not_found")
     key.revoked_at = get_datetime_utc()
     session.add(key)

@@ -50,7 +50,7 @@ const UploadInvoice = () => {
   const mutation = useMutation({
     mutationFn: (selected: File) =>
       InvoicesService.uploadInvoice({
-        body: { file: selected, company_id: companyId ?? null },
+        body: { file: selected, recipient_company_id: companyId ?? null },
       }),
     onSuccess: (response) => {
       showSuccessToast(t("upload.toastUploaded"))

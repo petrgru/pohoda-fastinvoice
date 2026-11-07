@@ -190,7 +190,7 @@ function InvoiceDetail() {
     mutationFn: (companyId: string) =>
       InvoicesService.assignCompany({
         path: { invoice_id: invoiceId },
-        body: { company_id: companyId },
+        body: { recipient_company_id: companyId },
       }),
     onSuccess: () => {
       showSuccessToast(t("invoice.companyAssigned"))
@@ -345,7 +345,7 @@ function InvoiceDetail() {
           <div className="flex flex-col gap-3">
             <h2 className="font-semibold">{t("invoice.companySection")}</h2>
             <Select
-              value={invoice.company_id ?? undefined}
+              value={invoice.recipient_company_id ?? undefined}
               onValueChange={(value) => assignMutation.mutate(value)}
               disabled={!editable || assignMutation.isPending}
             >

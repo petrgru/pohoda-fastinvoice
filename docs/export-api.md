@@ -14,6 +14,9 @@ faktur**.
 
 ## Tok exportu
 
+> Pro **read-only** přístup externích aplikací (mimo davkový export) slouží
+> samostatné [Data API](data-api.md) na `/api/v1/data`.
+
 ```
 [UI] upload → parse → přiřazení firmy → potvrzení uživatelem
                               ↓ READY_FOR_EXPORT

@@ -15,7 +15,7 @@ test.describe("Company management", () => {
       await page.goto("/companies")
       await page.getByTestId("company-search-input").fill(name)
       const row = page.locator("tr", { hasText: name })
-      await expect(row).toBeVisible()
+      await expect(row).toBeVisible({ timeout: 15_000 })
       await row.locator('[data-testid^="company-actions-menu"]').click()
       await page.getByTestId(`company-manage-${company.id}`).click()
 

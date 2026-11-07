@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Search } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { CompaniesService } from "@/client"
@@ -17,6 +17,12 @@ function Companies() {
   const columns = useCompanyColumns()
   const [search, setSearch] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
+
+  // apply the search live – no need to press Enter
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchTerm(search.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const { data, isPending } = useQuery({
     queryKey: ["companies", searchTerm],

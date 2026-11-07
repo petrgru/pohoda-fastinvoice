@@ -62,7 +62,13 @@ from sqlmodel import Session, SQLModel, delete  # noqa: E402
 from app.core.config import settings  # noqa: E402
 from app.core.db import engine, init_db  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import AuditLog, Company, ExportBatch, Invoice, User  # noqa: E402
+from app.models import (  # noqa: E402
+    AuditLog,
+    ExportBatch,
+    Invoice,
+    RecipientCompany,
+    User,
+)
 from app.services import vat  # noqa: E402
 from tests.utils.user import authentication_token_from_email  # noqa: E402
 from tests.utils.utils import get_superuser_token_headers  # noqa: E402
@@ -81,7 +87,7 @@ def db() -> Generator[Session]:
         init_db(session)
         yield session
         session.rollback()
-        for model in (AuditLog, Invoice, Company, ExportBatch, User):
+        for model in (AuditLog, Invoice, RecipientCompany, ExportBatch, User):
             session.execute(delete(model))
         session.commit()
 

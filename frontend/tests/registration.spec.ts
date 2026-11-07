@@ -85,7 +85,7 @@ test.describe("Registration and first company", () => {
       ])
       expect(uploadResponse.status()).toBe(201)
       const created = await uploadResponse.json()
-      expect(created.company_id).not.toBeNull()
+      expect(created.recipient_company_id).not.toBeNull()
 
       // the new user sees the invoice in their list
       await expect(page.getByTestId("state-badge").first()).toBeVisible({

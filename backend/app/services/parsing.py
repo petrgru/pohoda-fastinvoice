@@ -27,8 +27,8 @@ from pypdf import PdfReader
 
 from app.core.config import settings
 from app.models import (  # noqa: F401 (re-export)
-    Company,
     ParsedInvoice,
+    RecipientCompany,
     VatItem,
     normalize_bank_account,
     normalize_iban,
@@ -932,12 +932,12 @@ def _dic_digits(value: str | None) -> str:
     return re.sub(r"\D", "", value[2:] if value[:2].isalpha() else value)
 
 
-def match_company(
-    companies: Sequence[Company],
+def match_recipient_company(
+    companies: Sequence[RecipientCompany],
     ico: str | None,
     dic: str | None,
     name: str | None,
-) -> Company | None:
+) -> RecipientCompany | None:
     """Find the one company matching the parsed recipient data, if unambiguous.
 
     `companies` are the candidates the uploader may assign to (their member

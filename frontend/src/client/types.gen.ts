@@ -49,9 +49,9 @@ export type Body_invoices_upload_invoice = {
      */
     file: Blob | File;
     /**
-     * Company Id
+     * Recipient Company Id
      */
-    company_id?: string | null;
+    recipient_company_id?: string | null;
 };
 
 /**
@@ -85,175 +85,11 @@ export type Body_login_login_access_token = {
 };
 
 /**
- * CompaniesPublic
- */
-export type CompaniesPublic = {
-    /**
-     * Data
-     */
-    data: Array<CompanyPublic>;
-    /**
-     * Count
-     */
-    count: number;
-};
-
-/**
- * CompanyApiKeyCreate
- */
-export type CompanyApiKeyCreate = {
-    /**
-     * Label
-     */
-    label: string;
-};
-
-/**
- * CompanyApiKeyCreated
+ * DataInvoicePublic
  *
- * Same as the public view but carrying the plaintext key, shown once.
+ * Read-only invoice projection for external apps (Data API).
  */
-export type CompanyApiKeyCreated = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Label
-     */
-    label: string;
-    /**
-     * Key Prefix
-     */
-    key_prefix: string;
-    /**
-     * Created At
-     */
-    created_at?: string | null;
-    /**
-     * Last Used At
-     */
-    last_used_at?: string | null;
-    /**
-     * Revoked At
-     */
-    revoked_at?: string | null;
-    /**
-     * Key
-     */
-    key: string;
-};
-
-/**
- * CompanyApiKeyPublic
- */
-export type CompanyApiKeyPublic = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Label
-     */
-    label: string;
-    /**
-     * Key Prefix
-     */
-    key_prefix: string;
-    /**
-     * Created At
-     */
-    created_at?: string | null;
-    /**
-     * Last Used At
-     */
-    last_used_at?: string | null;
-    /**
-     * Revoked At
-     */
-    revoked_at?: string | null;
-};
-
-/**
- * CompanyAssign
- */
-export type CompanyAssign = {
-    /**
-     * Company Id
-     */
-    company_id: string;
-};
-
-/**
- * CompanyCreate
- */
-export type CompanyCreate = {
-    /**
-     * Name
-     */
-    name: string;
-    /**
-     * Ico
-     */
-    ico: string;
-    /**
-     * Dic
-     */
-    dic?: string | null;
-    /**
-     * Address
-     */
-    address?: string | null;
-    /**
-     * Bank Account
-     */
-    bank_account: string;
-    /**
-     * Note
-     */
-    note?: string | null;
-    /**
-     * Is Active
-     */
-    is_active?: boolean;
-    /**
-     * Bank Accounts
-     */
-    bank_accounts?: Array<BankAccountCreate> | null;
-};
-
-/**
- * CompanyPublic
- */
-export type CompanyPublic = {
-    /**
-     * Name
-     */
-    name: string;
-    /**
-     * Ico
-     */
-    ico: string;
-    /**
-     * Dic
-     */
-    dic?: string | null;
-    /**
-     * Address
-     */
-    address?: string | null;
-    /**
-     * Bank Account
-     */
-    bank_account?: string | null;
-    /**
-     * Note
-     */
-    note?: string | null;
-    /**
-     * Is Active
-     */
-    is_active?: boolean;
+export type DataInvoicePublic = {
     /**
      * Id
      */
@@ -267,52 +103,112 @@ export type CompanyPublic = {
      */
     updated_at?: string | null;
     /**
-     * Source
+     * State
      */
-    source?: string;
+    state: string;
     /**
-     * Bank Accounts
+     * Invoice Number
      */
-    bank_accounts?: Array<BankAccountPublic>;
-    my_role?: MembershipRole | null;
+    invoice_number?: string | null;
+    /**
+     * Document Type
+     */
+    document_type?: string | null;
+    /**
+     * Supplier Name
+     */
+    supplier_name?: string | null;
+    /**
+     * Supplier Ico
+     */
+    supplier_ico?: string | null;
+    /**
+     * Supplier Dic
+     */
+    supplier_dic?: string | null;
+    /**
+     * Recipient Name
+     */
+    recipient_name?: string | null;
+    /**
+     * Recipient Ico
+     */
+    recipient_ico?: string | null;
+    /**
+     * Recipient Dic
+     */
+    recipient_dic?: string | null;
+    /**
+     * Recipient Company Id
+     */
+    recipient_company_id?: string | null;
+    company?: RecipientCompanyPublic | null;
+    /**
+     * Issue Date
+     */
+    issue_date?: string | null;
+    /**
+     * Delivery Date
+     */
+    delivery_date?: string | null;
+    /**
+     * Due Date
+     */
+    due_date?: string | null;
+    /**
+     * Total Price
+     */
+    total_price?: string | null;
+    /**
+     * Total Vat
+     */
+    total_vat?: string | null;
+    /**
+     * Total Without Vat
+     */
+    total_without_vat?: string | null;
+    /**
+     * Currency
+     */
+    currency?: string | null;
+    /**
+     * Vat Items
+     */
+    vat_items?: Array<VatItem_Output> | null;
+    /**
+     * Original Filename
+     */
+    original_filename?: string | null;
+    /**
+     * Content Type
+     */
+    content_type?: string | null;
+    /**
+     * File Size
+     */
+    file_size?: number | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Exported At
+     */
+    exported_at?: string | null;
 };
 
 /**
- * CompanyUpdate
+ * DataInvoicesPublic
  */
-export type CompanyUpdate = {
+export type DataInvoicesPublic = {
     /**
-     * Name
+     * Data
      */
-    name?: string | null;
+    data: Array<DataInvoicePublic>;
     /**
-     * Ico
+     * Count
      */
-    ico?: string | null;
-    /**
-     * Dic
-     */
-    dic?: string | null;
-    /**
-     * Address
-     */
-    address?: string | null;
-    /**
-     * Bank Account
-     */
-    bank_account?: string | null;
-    /**
-     * Bank Accounts
-     */
-    bank_accounts?: Array<BankAccountCreate> | null;
-    /**
-     * Note
-     */
-    note?: string | null;
-    /**
-     * Is Active
-     */
-    is_active?: boolean | null;
+    count: number;
 };
 
 /**
@@ -339,7 +235,7 @@ export type ExportQueueItem = {
      * Export Url
      */
     export_url: string;
-    company: CompanyPublic;
+    company: RecipientCompanyPublic;
     /**
      * Invoice Number
      */
@@ -563,10 +459,10 @@ export type InvoicePublic = {
      */
     vat_rate_warnings?: Array<string>;
     /**
-     * Company Id
+     * Recipient Company Id
      */
-    company_id?: string | null;
-    company?: CompanyPublic | null;
+    recipient_company_id?: string | null;
+    company?: RecipientCompanyPublic | null;
     /**
      * Uploaded By Id
      */
@@ -854,6 +750,237 @@ export type PrivateUserCreate = {
      * Is Verified
      */
     is_verified?: boolean;
+};
+
+/**
+ * RecipientApiKeyCreate
+ */
+export type RecipientApiKeyCreate = {
+    /**
+     * Label
+     */
+    label: string;
+};
+
+/**
+ * RecipientApiKeyCreated
+ *
+ * Same as the public view but carrying the plaintext key, shown once.
+ */
+export type RecipientApiKeyCreated = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Key Prefix
+     */
+    key_prefix: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Last Used At
+     */
+    last_used_at?: string | null;
+    /**
+     * Revoked At
+     */
+    revoked_at?: string | null;
+    /**
+     * Key
+     */
+    key: string;
+};
+
+/**
+ * RecipientApiKeyPublic
+ */
+export type RecipientApiKeyPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Key Prefix
+     */
+    key_prefix: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Last Used At
+     */
+    last_used_at?: string | null;
+    /**
+     * Revoked At
+     */
+    revoked_at?: string | null;
+};
+
+/**
+ * RecipientCompaniesPublic
+ */
+export type RecipientCompaniesPublic = {
+    /**
+     * Data
+     */
+    data: Array<RecipientCompanyPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
+ * RecipientCompanyAssign
+ */
+export type RecipientCompanyAssign = {
+    /**
+     * Recipient Company Id
+     */
+    recipient_company_id: string;
+};
+
+/**
+ * RecipientCompanyCreate
+ */
+export type RecipientCompanyCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Ico
+     */
+    ico: string;
+    /**
+     * Dic
+     */
+    dic?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Bank Account
+     */
+    bank_account: string;
+    /**
+     * Note
+     */
+    note?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Bank Accounts
+     */
+    bank_accounts?: Array<BankAccountCreate> | null;
+};
+
+/**
+ * RecipientCompanyPublic
+ */
+export type RecipientCompanyPublic = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Ico
+     */
+    ico: string;
+    /**
+     * Dic
+     */
+    dic?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Bank Account
+     */
+    bank_account?: string | null;
+    /**
+     * Note
+     */
+    note?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+    /**
+     * Source
+     */
+    source?: string;
+    /**
+     * Bank Accounts
+     */
+    bank_accounts?: Array<BankAccountPublic>;
+    my_role?: MembershipRole | null;
+};
+
+/**
+ * RecipientCompanyUpdate
+ */
+export type RecipientCompanyUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Ico
+     */
+    ico?: string | null;
+    /**
+     * Dic
+     */
+    dic?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Bank Account
+     */
+    bank_account?: string | null;
+    /**
+     * Bank Accounts
+     */
+    bank_accounts?: Array<BankAccountCreate> | null;
+    /**
+     * Note
+     */
+    note?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
 };
 
 /**
@@ -1631,13 +1758,13 @@ export type companiesListCompaniesResponses = {
     /**
      * Successful Response
      */
-    200: CompaniesPublic;
+    200: RecipientCompaniesPublic;
 };
 
 export type companiesListCompaniesResponse = companiesListCompaniesResponses[keyof companiesListCompaniesResponses];
 
 export type companiesCreateCompanyData = {
-    body: CompanyCreate;
+    body: RecipientCompanyCreate;
     path?: never;
     query?: never;
     url: '/api/v1/companies';
@@ -1656,7 +1783,7 @@ export type companiesCreateCompanyResponses = {
     /**
      * Successful Response
      */
-    201: CompanyPublic;
+    201: RecipientCompanyPublic;
 };
 
 export type companiesCreateCompanyResponse = companiesCreateCompanyResponses[keyof companiesCreateCompanyResponses];
@@ -1695,12 +1822,12 @@ export type companiesDeleteCompanyData = {
     body?: never;
     path: {
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id: string;
+        recipient_company_id: string;
     };
     query?: never;
-    url: '/api/v1/companies/{company_id}';
+    url: '/api/v1/companies/{recipient_company_id}';
 };
 
 export type companiesDeleteCompanyErrors = {
@@ -1725,12 +1852,12 @@ export type companiesGetCompanyData = {
     body?: never;
     path: {
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id: string;
+        recipient_company_id: string;
     };
     query?: never;
-    url: '/api/v1/companies/{company_id}';
+    url: '/api/v1/companies/{recipient_company_id}';
 };
 
 export type companiesGetCompanyErrors = {
@@ -1746,21 +1873,21 @@ export type companiesGetCompanyResponses = {
     /**
      * Successful Response
      */
-    200: CompanyPublic;
+    200: RecipientCompanyPublic;
 };
 
 export type companiesGetCompanyResponse = companiesGetCompanyResponses[keyof companiesGetCompanyResponses];
 
 export type companiesUpdateCompanyData = {
-    body: CompanyUpdate;
+    body: RecipientCompanyUpdate;
     path: {
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id: string;
+        recipient_company_id: string;
     };
     query?: never;
-    url: '/api/v1/companies/{company_id}';
+    url: '/api/v1/companies/{recipient_company_id}';
 };
 
 export type companiesUpdateCompanyErrors = {
@@ -1776,7 +1903,7 @@ export type companiesUpdateCompanyResponses = {
     /**
      * Successful Response
      */
-    200: CompanyPublic;
+    200: RecipientCompanyPublic;
 };
 
 export type companiesUpdateCompanyResponse = companiesUpdateCompanyResponses[keyof companiesUpdateCompanyResponses];
@@ -1785,12 +1912,12 @@ export type companiesListMembersData = {
     body?: never;
     path: {
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id: string;
+        recipient_company_id: string;
     };
     query?: never;
-    url: '/api/v1/companies/{company_id}/members';
+    url: '/api/v1/companies/{recipient_company_id}/members';
 };
 
 export type companiesListMembersErrors = {
@@ -1817,12 +1944,12 @@ export type companiesAddMemberData = {
     body: MembershipCreate;
     path: {
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id: string;
+        recipient_company_id: string;
     };
     query?: never;
-    url: '/api/v1/companies/{company_id}/members';
+    url: '/api/v1/companies/{recipient_company_id}/members';
 };
 
 export type companiesAddMemberErrors = {
@@ -1847,16 +1974,16 @@ export type companiesRemoveMemberData = {
     body?: never;
     path: {
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id: string;
+        recipient_company_id: string;
         /**
          * Membership Id
          */
         membership_id: string;
     };
     query?: never;
-    url: '/api/v1/companies/{company_id}/members/{membership_id}';
+    url: '/api/v1/companies/{recipient_company_id}/members/{membership_id}';
 };
 
 export type companiesRemoveMemberErrors = {
@@ -1881,16 +2008,16 @@ export type companiesUpdateMemberRoleData = {
     body: MembershipUpdate;
     path: {
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id: string;
+        recipient_company_id: string;
         /**
          * Membership Id
          */
         membership_id: string;
     };
     query?: never;
-    url: '/api/v1/companies/{company_id}/members/{membership_id}';
+    url: '/api/v1/companies/{recipient_company_id}/members/{membership_id}';
 };
 
 export type companiesUpdateMemberRoleErrors = {
@@ -1947,12 +2074,12 @@ export type companiesListApiKeysData = {
     body?: never;
     path: {
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id: string;
+        recipient_company_id: string;
     };
     query?: never;
-    url: '/api/v1/companies/{company_id}/api-keys';
+    url: '/api/v1/companies/{recipient_company_id}/api-keys';
 };
 
 export type companiesListApiKeysErrors = {
@@ -1970,21 +2097,21 @@ export type companiesListApiKeysResponses = {
      *
      * Successful Response
      */
-    200: Array<CompanyApiKeyPublic>;
+    200: Array<RecipientApiKeyPublic>;
 };
 
 export type companiesListApiKeysResponse = companiesListApiKeysResponses[keyof companiesListApiKeysResponses];
 
 export type companiesCreateApiKeyData = {
-    body: CompanyApiKeyCreate;
+    body: RecipientApiKeyCreate;
     path: {
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id: string;
+        recipient_company_id: string;
     };
     query?: never;
-    url: '/api/v1/companies/{company_id}/api-keys';
+    url: '/api/v1/companies/{recipient_company_id}/api-keys';
 };
 
 export type companiesCreateApiKeyErrors = {
@@ -2000,7 +2127,7 @@ export type companiesCreateApiKeyResponses = {
     /**
      * Successful Response
      */
-    201: CompanyApiKeyCreated;
+    201: RecipientApiKeyCreated;
 };
 
 export type companiesCreateApiKeyResponse = companiesCreateApiKeyResponses[keyof companiesCreateApiKeyResponses];
@@ -2009,16 +2136,16 @@ export type companiesRevokeApiKeyData = {
     body?: never;
     path: {
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id: string;
+        recipient_company_id: string;
         /**
          * Key Id
          */
         key_id: string;
     };
     query?: never;
-    url: '/api/v1/companies/{company_id}/api-keys/{key_id}';
+    url: '/api/v1/companies/{recipient_company_id}/api-keys/{key_id}';
 };
 
 export type companiesRevokeApiKeyErrors = {
@@ -2081,9 +2208,9 @@ export type invoicesListInvoicesData = {
          */
         state?: string | null;
         /**
-         * Company Id
+         * Recipient Company Id
          */
-        company_id?: string | null;
+        recipient_company_id?: string | null;
         /**
          * Q
          */
@@ -2281,7 +2408,7 @@ export type invoicesGetInvoiceFileResponses = {
 };
 
 export type invoicesAssignCompanyData = {
-    body: CompanyAssign;
+    body: RecipientCompanyAssign;
     path: {
         /**
          * Invoice Id
@@ -2289,7 +2416,7 @@ export type invoicesAssignCompanyData = {
         invoice_id: string;
     };
     query?: never;
-    url: '/api/v1/invoices/{invoice_id}/company';
+    url: '/api/v1/invoices/{invoice_id}/recipient-company';
 };
 
 export type invoicesAssignCompanyErrors = {
@@ -2311,7 +2438,7 @@ export type invoicesAssignCompanyResponses = {
 export type invoicesAssignCompanyResponse = invoicesAssignCompanyResponses[keyof invoicesAssignCompanyResponses];
 
 export type invoicesCreateCompanyForInvoiceData = {
-    body: CompanyCreate;
+    body: RecipientCompanyCreate;
     path: {
         /**
          * Invoice Id
@@ -2319,7 +2446,7 @@ export type invoicesCreateCompanyForInvoiceData = {
         invoice_id: string;
     };
     query?: never;
-    url: '/api/v1/invoices/{invoice_id}/company/create';
+    url: '/api/v1/invoices/{invoice_id}/recipient-company/create';
 };
 
 export type invoicesCreateCompanyForInvoiceErrors = {
@@ -2541,6 +2668,124 @@ export type exportSyncCompaniesResponses = {
 };
 
 export type exportSyncCompaniesResponse = exportSyncCompaniesResponses[keyof exportSyncCompaniesResponses];
+
+export type dataListInvoicesData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * State
+         */
+        state?: string | null;
+        /**
+         * Q
+         */
+        q?: string | null;
+    };
+    url: '/api/v1/data/invoices';
+};
+
+export type dataListInvoicesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type dataListInvoicesError = dataListInvoicesErrors[keyof dataListInvoicesErrors];
+
+export type dataListInvoicesResponses = {
+    /**
+     * Successful Response
+     */
+    200: DataInvoicesPublic;
+};
+
+export type dataListInvoicesResponse = dataListInvoicesResponses[keyof dataListInvoicesResponses];
+
+export type dataGetInvoiceData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/data/invoices/{invoice_id}';
+};
+
+export type dataGetInvoiceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type dataGetInvoiceError = dataGetInvoiceErrors[keyof dataGetInvoiceErrors];
+
+export type dataGetInvoiceResponses = {
+    /**
+     * Successful Response
+     */
+    200: DataInvoicePublic;
+};
+
+export type dataGetInvoiceResponse = dataGetInvoiceResponses[keyof dataGetInvoiceResponses];
+
+export type dataGetInvoiceFileData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/data/invoices/{invoice_id}/file';
+};
+
+export type dataGetInvoiceFileErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type dataGetInvoiceFileError = dataGetInvoiceFileErrors[keyof dataGetInvoiceFileErrors];
+
+export type dataGetInvoiceFileResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

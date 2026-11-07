@@ -7,6 +7,7 @@ import {
   deleteCompanyByIco,
   deleteInvoicesByFilename,
   getInvoice,
+  makePdfBytes,
   markInvoiceExported,
   randomIco,
   tryDeleteInvoice,
@@ -75,7 +76,11 @@ test.describe("Invoice workflow", () => {
     await page.getByPlaceholder("8 číslic").fill(randomIco())
     await page.getByPlaceholder("123456789/0100").fill("123456789/0100")
     await page.getByTestId("add-company-confirm-button").click()
-    await expect(page.getByText(name)).toBeVisible()
+    // the list is sorted by name and paginated – find the new row via search
+    await page.getByTestId("company-search-input").fill(name)
+    await expect(page.locator("tr", { hasText: name })).toBeVisible({
+      timeout: 15_000,
+    })
   })
 
   test("full flow: upload → review → company → approve → export lock", async ({
@@ -117,7 +122,7 @@ test.describe("Invoice workflow", () => {
     await expect(page.getByTestId("preview-dialog")).toHaveCount(0)
 
     const parsed = await waitForParsed(invoice.id)
-    expect(parsed.company_id).toBeNull()
+    expect(parsed.recipient_company_id).toBeNull()
 
     // The invoice waits in the queue with a reason (company not assigned)
     await page.goto("/queue")
@@ -195,6 +200,65 @@ test.describe("Invoice workflow", () => {
       "Zatím není vybrána firma příjemce",
       { timeout: 10_000 },
     )
+  })
+
+  test("upload dialog assigns the recipient picked from our companies", async ({
+    page,
+  }) => {
+    test.slow()
+    test.setTimeout(240_000)
+
+    // two own companies make the picker show; the document names none of them
+    const first = await createCompany(`E2E Prijemce1 ${Date.now()}`)
+    const second = await createCompany(`E2E Prijemce2 ${Date.now()}`)
+    const filename = `faktura-picker-${Date.now()}.pdf`
+    let invoiceId: string | null = null
+    try {
+      await page.goto("/invoices")
+      await page.getByTestId("upload-invoice-button").click()
+      await page.getByTestId("invoice-file-input").setInputFiles({
+        name: filename,
+        mimeType: "application/pdf",
+        buffer: Buffer.from(
+          makePdfBytes([
+            "FAKTURA PICKR",
+            `Dodavatel: Dodavatel Pickr ${randomIco()} s.r.o.`,
+            "Prijemce: Firma Úplne Cizi 99999999 a.s.",
+            "Celkem 1210,00 Kc",
+          ]),
+        ),
+      })
+
+      const picker = page.getByTestId("upload-recipient-select")
+      await expect(picker).toBeVisible()
+      await picker.click()
+      await page.getByRole("option", { name: second.name }).click()
+      await page.getByTestId("upload-invoice-confirm-button").click()
+      await expect(page).toHaveURL(/\/invoices\/[0-9a-f-]{36}$/)
+      invoiceId = page.url().split("/").pop() ?? null
+
+      // the explicit choice wins even after the (slow, LLM) parsing finishes;
+      // poll over the API – during the route transition the list page is still
+      // mounted and its rows would make page-level locators ambiguous
+      const deadline = Date.now() + 180_000
+      let assigned = await getInvoice(invoiceId!)
+      while (
+        (assigned.state === "uploaded" || assigned.state === "parsing") &&
+        Date.now() < deadline
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 1_000))
+        assigned = await getInvoice(invoiceId!)
+      }
+      expect(assigned.recipient_company_id).toBe(second.id)
+      await page.reload()
+      await expect(page.getByTestId("state-badge")).toHaveText("Ke kontrole")
+    } finally {
+      if (invoiceId) {
+        await tryDeleteInvoice(invoiceId)
+      }
+      await deleteCompanyByIco(first.ico)
+      await deleteCompanyByIco(second.ico)
+    }
   })
 
   test("multi-rate invoice lists the VAT breakdown per rate", async ({

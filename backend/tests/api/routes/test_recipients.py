@@ -47,9 +47,11 @@ def unique_pdf() -> bytes:
 def upload(
     client: TestClient,
     headers: dict[str, str],
-    company_id: str | None = None,
+    recipient_company_id: str | None = None,
 ) -> object:
-    data = {"company_id": company_id} if company_id else None
+    data = (
+        {"recipient_company_id": recipient_company_id} if recipient_company_id else None
+    )
     return client.post(
         UPLOAD_URL,
         headers=headers,
@@ -68,7 +70,7 @@ def test_upload_with_sole_company_assigns_it(
 
     response = upload(client, headers)
     assert response.status_code == 201
-    assert response.json()["company_id"] == str(company.id)
+    assert response.json()["recipient_company_id"] == str(company.id)
 
 
 def test_upload_with_foreign_company_is_forbidden(
@@ -79,7 +81,7 @@ def test_upload_with_foreign_company_is_forbidden(
     headers, email = member_headers(client, db)
     add_membership(db, email, mine.id, MembershipRole.EDITOR)
 
-    response = upload(client, headers, company_id=str(theirs.id))
+    response = upload(client, headers, recipient_company_id=str(theirs.id))
     assert response.status_code == 403
 
 
@@ -93,9 +95,9 @@ def test_upload_with_chosen_company(
     add_membership(db, email, company_b.id, MembershipRole.EDITOR)
     ParserReturning(monkeypatch, parsed_sample())  # recipient matches nothing
 
-    response = upload(client, headers, company_id=str(company_b.id))
+    response = upload(client, headers, recipient_company_id=str(company_b.id))
     assert response.status_code == 201
-    assert response.json()["company_id"] == str(company_b.id)
+    assert response.json()["recipient_company_id"] == str(company_b.id)
 
 
 def test_recipient_ico_match_among_member_companies(
@@ -113,7 +115,7 @@ def test_recipient_ico_match_among_member_companies(
     body = client.get(
         f"/api/v1/invoices/{response.json()['id']}", headers=headers
     ).json()
-    assert body["company_id"] == str(company_b.id)
+    assert body["recipient_company_id"] == str(company_b.id)
     assert body["recipient_ico"] == company_b.ico
 
 
@@ -134,7 +136,7 @@ def test_unknown_recipient_stays_unassigned(
     body = client.get(
         f"/api/v1/invoices/{response.json()['id']}", headers=headers
     ).json()
-    assert body["company_id"] is None
+    assert body["recipient_company_id"] is None
     assert body["state"] == InvoiceState.NEEDS_REVIEW.value
 
 
@@ -154,4 +156,4 @@ def test_recipient_never_matches_foreign_company(
     body = client.get(
         f"/api/v1/invoices/{response.json()['id']}", headers=headers
     ).json()
-    assert body["company_id"] is None
+    assert body["recipient_company_id"] is None

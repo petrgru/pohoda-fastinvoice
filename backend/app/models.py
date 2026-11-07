@@ -204,7 +204,7 @@ DELETABLE_STATES = {
 }
 
 
-class CompanyBase(SQLModel):
+class RecipientCompanyBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     ico: str = Field(unique=True, index=True, max_length=8)
     dic: str | None = Field(default=None, max_length=15)
@@ -261,7 +261,7 @@ class BankAccountBase(SQLModel):
     def validate_account(cls, value: str | None) -> str | None:
         if value is None or not value.strip():
             return None
-        return CompanyBase.validate_bank_account(value)
+        return RecipientCompanyBase.validate_bank_account(value)
 
     @field_validator("iban")
     @classmethod
@@ -277,16 +277,16 @@ class BankAccountBase(SQLModel):
 class BankAccount(BankAccountBase, table=True):
     """A bank account row belonging to a company (invoices may list several)."""
 
-    __tablename__ = "company_bank_account"
+    __tablename__ = "recipient_bank_account"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    company_id: uuid.UUID = Field(
-        foreign_key="company.id", index=True, ondelete="CASCADE"
+    recipient_company_id: uuid.UUID = Field(
+        foreign_key="recipientcompany.id", index=True, ondelete="CASCADE"
     )
     position: int = Field(default=0)
 
     # quoted on purpose: SQLModel needs the resolvable class name string here
-    company: "Company" = Relationship(back_populates="bank_accounts")  # noqa: UP037
+    recipient_company: RecipientCompany = Relationship(back_populates="bank_accounts")  # noqa: UP037
 
 
 class BankAccountCreate(BankAccountBase):
@@ -302,7 +302,7 @@ class SupplierBankAccount(BankAccountBase):
     """One payment account of the invoice supplier (parsed, user-correctable)."""
 
 
-class CompanyCreate(CompanyBase):
+class RecipientCompanyCreate(RecipientCompanyBase):
     # Manual company entry requires every field except DIČ; the shared base
     # keeps them nullable so existing rows and the Pohoda sync stay tolerant.
     bank_account: str = Field(max_length=40)
@@ -318,7 +318,7 @@ class CompanyCreate(CompanyBase):
         return [row for row in value if row.account or row.iban]
 
 
-class CompanyUpdate(SQLModel):
+class RecipientCompanyUpdate(SQLModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     ico: str | None = Field(default=None, max_length=8)
     dic: str | None = Field(default=None, max_length=15)
@@ -333,27 +333,31 @@ class CompanyUpdate(SQLModel):
     def validate_ico(cls, value: str | None) -> str | None:
         if value is None:
             return value
-        return CompanyBase.validate_ico(value)
+        return RecipientCompanyBase.validate_ico(value)
 
     @field_validator("dic")
     @classmethod
     def validate_dic(cls, value: str | None) -> str | None:
-        return CompanyBase.validate_dic(value)
+        return RecipientCompanyBase.validate_dic(value)
 
     @field_validator("bank_account")
     @classmethod
     def validate_bank_account(cls, value: str | None) -> str | None:
-        return CompanyBase.validate_bank_account(value)
+        return RecipientCompanyBase.validate_bank_account(value)
 
 
-class Company(CompanyBase, table=True):
+class RecipientCompany(RecipientCompanyBase, table=True):
+    """The document recipient – the user's own company invoices are filed under."""
+
+    __tablename__ = "recipientcompany"
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
     updated_at: datetime | None = Field(default_factory=get_datetime_utc)
     source: str = Field(default="manual", max_length=20)  # manual | pohoda_sync
-    invoices: list[Invoice] = Relationship(back_populates="company")
+    invoices: list[Invoice] = Relationship(back_populates="recipient_company")
     bank_accounts: list[BankAccount] = Relationship(
-        back_populates="company",
+        back_populates="recipient_company",
         sa_relationship_kwargs={
             "cascade": "all, delete-orphan",
             "order_by": "BankAccount.position",
@@ -361,7 +365,7 @@ class Company(CompanyBase, table=True):
     )
 
 
-class CompanyPublic(CompanyBase):
+class RecipientCompanyPublic(RecipientCompanyBase):
     id: uuid.UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -370,28 +374,30 @@ class CompanyPublic(CompanyBase):
     my_role: MembershipRole | None = None  # current user's role in this company
 
 
-class CompaniesPublic(SQLModel):
-    data: list[CompanyPublic]
+class RecipientCompaniesPublic(SQLModel):
+    data: list[RecipientCompanyPublic]
     count: int
 
 
 # ---------------------------------------------------------------------------
-# Company membership and per-company API keys
+# RecipientCompany membership and per-company API keys
 # ---------------------------------------------------------------------------
 
 
-class CompanyMembership(SQLModel, table=True):
+class RecipientMembership(SQLModel, table=True):
     """A user's role in one company; superusers are implicitly admin everywhere."""
+
+    __tablename__ = "recipientmembership"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
-    company_id: uuid.UUID = Field(
-        foreign_key="company.id", ondelete="CASCADE", index=True
+    recipient_company_id: uuid.UUID = Field(
+        foreign_key="recipientcompany.id", ondelete="CASCADE", index=True
     )
     role: str = Field(default=MembershipRole.EDITOR.value, max_length=16)
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
 
-    __table_args__ = (UniqueConstraint("user_id", "company_id"),)
+    __table_args__ = (UniqueConstraint("user_id", "recipient_company_id"),)
 
 
 class MembershipCreate(SQLModel):
@@ -415,12 +421,14 @@ class MembershipPublic(SQLModel):
     created_at: datetime | None = None
 
 
-class CompanyApiKey(SQLModel, table=True):
+class RecipientApiKey(SQLModel, table=True):
     """API key granting the Pohoda connector access to ONE company's export."""
 
+    __tablename__ = "recipientapikey"
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    company_id: uuid.UUID = Field(
-        foreign_key="company.id", ondelete="CASCADE", index=True
+    recipient_company_id: uuid.UUID = Field(
+        foreign_key="recipientcompany.id", ondelete="CASCADE", index=True
     )
     label: str = Field(max_length=64)
     key_prefix: str = Field(max_length=16)  # first chars, shown in listings
@@ -433,11 +441,11 @@ class CompanyApiKey(SQLModel, table=True):
     revoked_at: datetime | None = None
 
 
-class CompanyApiKeyCreate(SQLModel):
+class RecipientApiKeyCreate(SQLModel):
     label: str = Field(min_length=1, max_length=64)
 
 
-class CompanyApiKeyPublic(SQLModel):
+class RecipientApiKeyPublic(SQLModel):
     id: uuid.UUID
     label: str
     key_prefix: str
@@ -446,7 +454,7 @@ class CompanyApiKeyPublic(SQLModel):
     revoked_at: datetime | None = None
 
 
-class CompanyApiKeyCreated(CompanyApiKeyPublic):
+class RecipientApiKeyCreated(RecipientApiKeyPublic):
     """Same as the public view but carrying the plaintext key, shown once."""
 
     key: str
@@ -680,10 +688,10 @@ class Invoice(SQLModel, table=True):
     )
 
     # Relations / approval / export
-    company_id: uuid.UUID | None = Field(
-        default=None, foreign_key="company.id", index=True, ondelete="SET NULL"
+    recipient_company_id: uuid.UUID | None = Field(
+        default=None, foreign_key="recipientcompany.id", index=True, ondelete="SET NULL"
     )
-    company: Company | None = Relationship(back_populates="invoices")
+    recipient_company: RecipientCompany | None = Relationship(back_populates="invoices")
     uploaded_by_id: uuid.UUID | None = Field(
         default=None, foreign_key="user.id", index=True, ondelete="SET NULL"
     )
@@ -754,8 +762,8 @@ class InvoicePublic(SQLModel):
     vat_check_ok: bool | None = None
     vat_difference: Decimal | None = None
     vat_rate_warnings: list[str] = []
-    company_id: uuid.UUID | None = None
-    company: CompanyPublic | None = None
+    recipient_company_id: uuid.UUID | None = None
+    company: RecipientCompanyPublic | None = None
     uploaded_by_id: uuid.UUID | None = None
     approved_by_id: uuid.UUID | None = None
     approved_at: datetime | None = None
@@ -766,6 +774,43 @@ class InvoicePublic(SQLModel):
 
 class InvoicesPublic(SQLModel):
     data: list[InvoicePublic]
+    count: int
+
+
+class DataInvoicePublic(SQLModel):
+    """Read-only invoice projection for external apps (Data API)."""
+
+    id: uuid.UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    state: str
+    invoice_number: str | None = None
+    document_type: str | None = None
+    supplier_name: str | None = None
+    supplier_ico: str | None = None
+    supplier_dic: str | None = None
+    recipient_name: str | None = None
+    recipient_ico: str | None = None
+    recipient_dic: str | None = None
+    recipient_company_id: uuid.UUID | None = None
+    company: RecipientCompanyPublic | None = None
+    issue_date: date | None = None
+    delivery_date: date | None = None
+    due_date: date | None = None
+    total_price: Decimal | None = None
+    total_vat: Decimal | None = None
+    total_without_vat: Decimal | None = None
+    currency: str | None = None
+    vat_items: list[VatItem] | None = None
+    original_filename: str | None = None
+    content_type: str | None = None
+    file_size: int | None = None
+    approved_at: datetime | None = None
+    exported_at: datetime | None = None
+
+
+class DataInvoicesPublic(SQLModel):
+    data: list[DataInvoicePublic]
     count: int
 
 
@@ -797,8 +842,8 @@ class InvoiceStats(SQLModel):
     totals: InvoiceStateCounts = InvoiceStateCounts()
 
 
-class CompanyAssign(SQLModel):
-    company_id: uuid.UUID
+class RecipientCompanyAssign(SQLModel):
+    recipient_company_id: uuid.UUID
 
 
 class InvoiceUpdate(SQLModel):
@@ -828,12 +873,12 @@ class InvoiceUpdate(SQLModel):
     def validate_ico(cls, value: str | None) -> str | None:
         if value is None:
             return value
-        return CompanyBase.validate_ico(value)
+        return RecipientCompanyBase.validate_ico(value)
 
     @field_validator("supplier_dic")
     @classmethod
     def validate_dic(cls, value: str | None) -> str | None:
-        return CompanyBase.validate_dic(value)
+        return RecipientCompanyBase.validate_dic(value)
 
     @field_validator("supplier_iban")
     @classmethod
@@ -866,7 +911,7 @@ class ExportQueueItem(SQLModel):
     original_filename: str
     content_type: str
     export_url: str
-    company: CompanyPublic
+    company: RecipientCompanyPublic
     invoice_number: str | None = None
     document_type: str | None = None
     issue_date: date | None = None
@@ -899,8 +944,8 @@ class AuditLog(SQLModel, table=True):
     invoice_id: uuid.UUID | None = Field(
         default=None, foreign_key="invoice.id", index=True, ondelete="CASCADE"
     )
-    company_id: uuid.UUID | None = Field(
-        default=None, foreign_key="company.id", index=True, ondelete="CASCADE"
+    recipient_company_id: uuid.UUID | None = Field(
+        default=None, foreign_key="recipientcompany.id", index=True, ondelete="CASCADE"
     )
     user_id: uuid.UUID | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL"

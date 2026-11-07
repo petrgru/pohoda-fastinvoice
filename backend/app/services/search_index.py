@@ -12,7 +12,7 @@ import httpx
 from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.models import Company, Invoice
+from app.models import Invoice, RecipientCompany
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def _ensure_index() -> None:
                 "original_filename",
                 "ocr_text",
             ],
-            "filterableAttributes": ["state", "company_id"],
+            "filterableAttributes": ["state", "recipient_company_id"],
             "sortableAttributes": ["created_at"],
             "displayedAttributes": ["id"],
         },
@@ -72,7 +72,11 @@ def _ensure_index() -> None:
 
 
 def _document(session: Session, invoice: Invoice) -> dict[str, Any]:
-    company = session.get(Company, invoice.company_id) if invoice.company_id else None
+    company = (
+        session.get(RecipientCompany, invoice.recipient_company_id)
+        if invoice.recipient_company_id
+        else None
+    )
     accounts = [invoice.supplier_bank_account or "", invoice.supplier_iban or ""]
     accounts += [
         f"{row.get('account') or ''} {row.get('iban') or ''}"
@@ -89,7 +93,9 @@ def _document(session: Session, invoice: Invoice) -> dict[str, Any]:
         "original_filename": invoice.original_filename or "",
         "ocr_text": (invoice.ocr_text or "")[:_OCR_LIMIT],
         "state": str(invoice.state),
-        "company_id": str(invoice.company_id) if invoice.company_id else None,
+        "recipient_company_id": str(invoice.recipient_company_id)
+        if invoice.recipient_company_id
+        else None,
     }
 
 
@@ -112,7 +118,7 @@ def search_ids(
     query: str,
     *,
     state: str | None = None,
-    company_id: uuid.UUID | None = None,
+    recipient_company_id: uuid.UUID | None = None,
     limit: int,
     offset: int,
 ) -> tuple[list[uuid.UUID], int] | None:
@@ -121,8 +127,8 @@ def search_ids(
     filters = []
     if state:
         filters.append(f"state = '{state}'")
-    if company_id:
-        filters.append(f"company_id = '{company_id}'")
+    if recipient_company_id:
+        filters.append(f"recipient_company_id = '{recipient_company_id}'")
     body: dict[str, Any] = {
         "q": query,
         "limit": limit,

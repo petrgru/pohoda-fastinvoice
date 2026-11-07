@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, col, select
 
 from app.core.config import settings
-from app.models import CompanyMembership, InvoiceState, MembershipRole, User
+from app.models import InvoiceState, MembershipRole, RecipientMembership, User
 from tests.utils.invoice import create_company, create_invoice
 from tests.utils.user import authentication_token_from_email
 
@@ -26,13 +26,13 @@ def member_headers(
 
 
 def add_membership(
-    db: Session, user_email: str, company_id: object, role: MembershipRole
+    db: Session, user_email: str, recipient_company_id: object, role: MembershipRole
 ) -> None:
     user = db.exec(select(User).where(col(User.email) == user_email)).one()
     db.add(
-        CompanyMembership(
+        RecipientMembership(
             user_id=user.id,
-            company_id=company_id,
+            recipient_company_id=recipient_company_id,
             role=role.value,  # type: ignore[arg-type]
         )
     )
@@ -147,11 +147,11 @@ def test_add_member_by_email_invites_unknown_user(
         json={"name": "Firma Pozvaná", "ico": "86362488", "bank_account": "1/0100"},
     )
     assert response.status_code == 201
-    company_id = response.json()["id"]
+    recipient_company_id = response.json()["id"]
 
     new_email = unique_email()
     response = client.post(
-        f"/api/v1/companies/{company_id}/members",
+        f"/api/v1/companies/{recipient_company_id}/members",
         headers=superuser_token_headers,
         json={"email": new_email, "role": MembershipRole.EDITOR.value},
     )
@@ -160,7 +160,7 @@ def test_add_member_by_email_invites_unknown_user(
 
     # a second add of the same user is a conflict
     response = client.post(
-        f"/api/v1/companies/{company_id}/members",
+        f"/api/v1/companies/{recipient_company_id}/members",
         headers=superuser_token_headers,
         json={"email": new_email, "role": MembershipRole.EDITOR.value},
     )

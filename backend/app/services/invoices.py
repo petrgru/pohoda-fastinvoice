@@ -18,7 +18,6 @@ from app.core.db import engine
 from app.models import (
     DELETABLE_STATES,
     AuditLog,
-    Company,
     Invoice,
     InvoicePublic,
     InvoiceState,
@@ -26,6 +25,7 @@ from app.models import (
     InvoiceStats,
     InvoiceStatsBucket,
     ParsedInvoice,
+    RecipientCompany,
     User,
     as_vat_items,
     check_vat_items,
@@ -33,7 +33,7 @@ from app.models import (
     vat_items_to_json,
     vat_rate_warnings,
 )
-from app.services import company_access, parsing, search_index, storage
+from app.services import parsing, recipient_access, search_index, storage
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def log_audit(
     action: str,
     *,
     invoice: Invoice | None = None,
-    company: Company | None = None,
+    company: RecipientCompany | None = None,
     user: User | None = None,
     details: dict[str, Any] | None = None,
 ) -> None:
@@ -81,7 +81,7 @@ def log_audit(
         AuditLog(
             action=action,
             invoice_id=invoice.id if invoice else None,
-            company_id=company.id if company else None,
+            recipient_company_id=company.id if company else None,
             user_id=user.id if user else None,
             details=details,
         )
@@ -163,7 +163,7 @@ def stats(
     scope = ""
     scope_params: dict[str, Any] = {}
     if visible_company_ids is not None:
-        scope = " AND (company_id = ANY(:visible_ids) OR uploaded_by_id = :scope_user)"
+        scope = " AND (recipient_company_id = ANY(:visible_ids) OR uploaded_by_id = :scope_user)"
         scope_params = {"visible_ids": visible_company_ids, "scope_user": user_id}
     today = get_datetime_utc().date()
     for unit, (periods, back) in _STAT_RANGES.items():
@@ -243,7 +243,11 @@ def queue_reasons(session: Session, invoice: Invoice) -> list[str]:
         reasons.append("queue.reason.processing")
     if invoice.parse_error:
         reasons.append(f"queue.reason.parse_error|{invoice.parse_error}")
-    company = session.get(Company, invoice.company_id) if invoice.company_id else None
+    company = (
+        session.get(RecipientCompany, invoice.recipient_company_id)
+        if invoice.recipient_company_id
+        else None
+    )
     if company is None:
         reasons.append("queue.reason.no_company")
     elif not company.is_active:
@@ -258,7 +262,11 @@ def queue_reasons(session: Session, invoice: Invoice) -> list[str]:
 
 
 def assert_approvable(session: Session, invoice: Invoice) -> None:
-    company = session.get(Company, invoice.company_id) if invoice.company_id else None
+    company = (
+        session.get(RecipientCompany, invoice.recipient_company_id)
+        if invoice.recipient_company_id
+        else None
+    )
     if company is None:
         raise ApprovalNotAllowedError("errors.approval_no_company")
     if not company.is_active:
@@ -272,11 +280,11 @@ def assert_approvable(session: Session, invoice: Invoice) -> None:
 def assign_company(
     session: Session,
     invoice: Invoice,
-    company: Company,
+    company: RecipientCompany,
     *,
     user: User | None = None,
 ) -> Invoice:
-    invoice.company_id = company.id
+    invoice.recipient_company_id = company.id
     invoice.updated_at = get_datetime_utc()
     if InvoiceState(invoice.state) in (InvoiceState.UPLOADED, InvoiceState.PARSING):
         invoice.state = InvoiceState.NEEDS_REVIEW.value
@@ -398,7 +406,11 @@ def _vat_items_search_text(vat_items: list[Any] | None) -> str:
 
 
 def update_search_vector(session: Session, invoice: Invoice) -> None:
-    company = session.get(Company, invoice.company_id) if invoice.company_id else None
+    company = (
+        session.get(RecipientCompany, invoice.recipient_company_id)
+        if invoice.recipient_company_id
+        else None
+    )
     fields = " ".join(
         str(part)
         for part in (
@@ -455,12 +467,12 @@ def to_public(session: Session, invoice: Invoice) -> InvoicePublic:
     public.can_delete = InvoiceState(invoice.state) in DELETABLE_STATES
     public.queue_reasons = queue_reasons(session, invoice)
     dic, iban = invoice.supplier_dic, invoice.supplier_iban
-    if invoice.company_id:
-        company = session.get(Company, invoice.company_id)
+    if invoice.recipient_company_id:
+        company = session.get(RecipientCompany, invoice.recipient_company_id)
         if company:
-            from app.models import CompanyPublic
+            from app.models import RecipientCompanyPublic
 
-            public.company = CompanyPublic.model_validate(company)
+            public.company = RecipientCompanyPublic.model_validate(company)
             dic = company.dic or dic
             if not iban:
                 accounts = company.bank_accounts
@@ -479,28 +491,28 @@ def to_public(session: Session, invoice: Invoice) -> InvoicePublic:
 def assign_recipient_company(session: Session, invoice: Invoice) -> None:
     """Attach the uploader's company the parsed recipient matches.
 
-    An explicit choice made at upload (`company_id` already set) always wins.
+    An explicit choice made at upload (`recipient_company_id` already set) always wins.
     Without a recognised recipient a member with exactly one company gets it
     assigned; anything else stays unassigned for the review screen.
     """
-    if invoice.company_id is not None:
+    if invoice.recipient_company_id is not None:
         return
     user = session.get(User, invoice.uploaded_by_id) if invoice.uploaded_by_id else None
     if user is None:
         return
-    company = parsing.match_company(
-        company_access.candidate_companies(session, user),
+    company = parsing.match_recipient_company(
+        recipient_access.candidate_companies(session, user),
         invoice.recipient_ico,
         invoice.recipient_dic,
         invoice.recipient_name,
     )
     action = "company_auto_matched"
     if company is None:
-        company = company_access.sole_company_for(session, user)
+        company = recipient_access.sole_company_for(session, user)
         action = "company_default_assigned"
     if company is None:
         return
-    invoice.company_id = company.id
+    invoice.recipient_company_id = company.id
     log_audit(session, action, invoice=invoice, company=company)
 
 

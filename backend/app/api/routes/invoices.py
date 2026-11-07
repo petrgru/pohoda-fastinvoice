@@ -10,9 +10,6 @@ from app.api.deps import CurrentUser, SessionDep
 from app.api.routes import companies as companies_route
 from app.core.config import settings
 from app.models import (
-    Company,
-    CompanyAssign,
-    CompanyCreate,
     Invoice,
     InvoicePublic,
     InvoicesPublic,
@@ -21,11 +18,15 @@ from app.models import (
     InvoiceUpdate,
     MembershipRole,
     Message,
+    RecipientCompany,
+    RecipientCompanyAssign,
+    RecipientCompanyCreate,
+    User,
     get_datetime_utc,
 )
-from app.services import companies as company_service
-from app.services import company_access, search_index, storage
 from app.services import invoices as invoice_service
+from app.services import recipient_access, search_index, storage
+from app.services import recipients as recipient_service
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -41,14 +42,14 @@ def _get_invoice(
     session: SessionDep,
     invoice_id: UUID,
     *,
-    user=None,  # noqa: ANN001
+    user: User | None = None,
     min_role: MembershipRole = MembershipRole.EDITOR,
 ) -> Invoice:
     invoice = session.get(Invoice, invoice_id)
     if not invoice:
         raise HTTPException(status_code=404, detail="errors.invoice_not_found")
     if user is not None:
-        company_access.ensure_invoice_access(session, user, invoice, min_role)
+        recipient_access.ensure_invoice_access(session, user, invoice, min_role)
     return invoice
 
 
@@ -73,11 +74,11 @@ async def upload_invoice(
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
     file: UploadFile,
-    company_id: Annotated[UUID | None, Form()] = None,
+    recipient_company_id: Annotated[UUID | None, Form()] = None,
 ) -> InvoicePublic:
     """Store an uploaded scan/photo/PDF and start parsing in the background.
 
-    `company_id` optionally selects the recipient (the user's own company);
+    `recipient_company_id` optionally selects the recipient (the user's own company);
     a member with a single company does not have to choose – it is assigned.
     """
     data = await file.read()
@@ -108,13 +109,15 @@ async def upload_invoice(
     # path, so saving is idempotent and never leaves an orphan behind
     storage.get_storage().save(storage_key, data)
 
-    if company_id is not None:
-        company_access.ensure_company_selectable(session, current_user, company_id)
-    auto_company: Company | None = None
-    if company_id is None:
-        auto_company = company_access.sole_company_for(session, current_user)
+    if recipient_company_id is not None:
+        recipient_access.ensure_company_selectable(
+            session, current_user, recipient_company_id
+        )
+    auto_company: RecipientCompany | None = None
+    if recipient_company_id is None:
+        auto_company = recipient_access.sole_company_for(session, current_user)
         if auto_company is not None:
-            company_id = auto_company.id
+            recipient_company_id = auto_company.id
 
     invoice = Invoice(
         original_filename=file.filename or "invoice",
@@ -123,7 +126,7 @@ async def upload_invoice(
         file_size=len(data),
         uploaded_by_id=current_user.id,
         file_hash=file_hash,
-        company_id=company_id,
+        recipient_company_id=recipient_company_id,
     )
     session.add(invoice)
     session.commit()
@@ -156,16 +159,18 @@ def list_invoices(
     skip: int = 0,
     limit: int = 20,
     state: str | None = None,
-    company_id: UUID | None = None,
+    recipient_company_id: UUID | None = None,
     q: str | None = None,
 ) -> InvoicesPublic:
     conditions: list[ColumnElement[bool]] = []
     if state:
         conditions.append(col(Invoice.state) == state)
-    if company_id:
-        company_access.ensure_company_selectable(session, current_user, company_id)
-        conditions.append(col(Invoice.company_id) == company_id)
-    if (visible := company_access.invoice_filter(session, current_user)) is not None:
+    if recipient_company_id:
+        recipient_access.ensure_company_selectable(
+            session, current_user, recipient_company_id
+        )
+        conditions.append(col(Invoice.recipient_company_id) == recipient_company_id)
+    if (visible := recipient_access.invoice_filter(session, current_user)) is not None:
         conditions.append(visible)
     if q and settings.MEILISEARCH_ENABLED:
         # relevance-ranked hits from Meilisearch; Postgres filters out any
@@ -173,7 +178,11 @@ def list_invoices(
         # yields nothing usable (empty or stale index, deleted documents)
         # its answer is not trusted and the Postgres query below runs.
         ranked = search_index.search_ids(
-            q, state=state, company_id=company_id, limit=limit, offset=skip
+            q,
+            state=state,
+            recipient_company_id=recipient_company_id,
+            limit=limit,
+            offset=skip,
         )
         if ranked is not None:
             ids, count = ranked
@@ -231,7 +240,7 @@ def list_queue(
 ) -> InvoicesPublic:
     """Invoices still waiting in the task queue (not yet imported)."""
     conditions: list[ColumnElement[bool]] = [col(Invoice.state).in_(QUEUE_STATES)]
-    if (visible := company_access.invoice_filter(session, current_user)) is not None:
+    if (visible := recipient_access.invoice_filter(session, current_user)) is not None:
         conditions.append(visible)
     count = session.exec(
         select(func.count()).select_from(Invoice).where(and_(*conditions))
@@ -257,7 +266,7 @@ def invoice_stats(
     """Aggregated counts for the dashboard (Plocha) chart and cards."""
     return invoice_service.stats(
         session,
-        company_access.member_company_ids(session, current_user),
+        recipient_access.member_company_ids(session, current_user),
         current_user.id,
     )
 
@@ -308,9 +317,9 @@ def update_invoice(
     _assert_mutable(invoice)
     _assert_parsed(invoice)
     changes = invoice_in.model_dump(exclude_unset=True)
-    if changes.get("company_id"):
-        company_access.ensure_company_selectable(
-            session, current_user, changes["company_id"]
+    if changes.get("recipient_company_id"):
+        recipient_access.ensure_company_selectable(
+            session, current_user, changes["recipient_company_id"]
         )
     for field, value in changes.items():
         setattr(invoice, field, value)
@@ -330,21 +339,21 @@ def update_invoice(
     return invoice_service.to_public(session, invoice)
 
 
-@router.put("/{invoice_id}/company", response_model=InvoicePublic)
+@router.put("/{invoice_id}/recipient-company", response_model=InvoicePublic)
 def assign_company(
     *,
     session: SessionDep,
     current_user: CurrentUser,
     invoice_id: UUID,
-    company_in: CompanyAssign,
+    company_in: RecipientCompanyAssign,
 ) -> InvoicePublic:
     invoice = _get_invoice(session, invoice_id, user=current_user)
     _assert_mutable(invoice)
     _assert_parsed(invoice)
-    company_access.ensure_company_selectable(
-        session, current_user, company_in.company_id
+    recipient_access.ensure_company_selectable(
+        session, current_user, company_in.recipient_company_id
     )
-    company = session.get(Company, company_in.company_id)
+    company = session.get(RecipientCompany, company_in.recipient_company_id)
     if not company:
         raise HTTPException(status_code=404, detail="errors.company_not_found")
     invoice_service.assign_company(session, invoice, company, user=current_user)
@@ -355,14 +364,16 @@ def assign_company(
 
 
 @router.post(
-    "/{invoice_id}/company/create", response_model=InvoicePublic, status_code=201
+    "/{invoice_id}/recipient-company/create",
+    response_model=InvoicePublic,
+    status_code=201,
 )
 def create_company_for_invoice(
     *,
     session: SessionDep,
     current_user: CurrentUser,
     invoice_id: UUID,
-    company_in: CompanyCreate,
+    company_in: RecipientCompanyCreate,
 ) -> InvoicePublic:
     """Create the parsed supplier as a new company and assign it (one tx).
 
@@ -374,16 +385,18 @@ def create_company_for_invoice(
     _assert_parsed(invoice)
     companies_route.assert_dic_valid(company_in.dic)
     existing = session.exec(
-        select(Company).where(Company.ico == company_in.ico)
+        select(RecipientCompany).where(RecipientCompany.ico == company_in.ico)
     ).first()
     if existing:
         raise HTTPException(status_code=409, detail="errors.company_ico_exists")
-    company = Company.model_validate(company_in.model_dump(exclude={"bank_accounts"}))
+    company = RecipientCompany.model_validate(
+        company_in.model_dump(exclude={"bank_accounts"})
+    )
     session.add(company)
     session.flush()  # persist before the audit rows reference it
     # whoever creates the company through an invoice becomes its first admin
-    company_access.add_admin_member(session, current_user, company)
-    company_service.apply_bank_accounts(session, company, company_in.bank_accounts)
+    recipient_access.add_admin_member(session, current_user, company)
+    recipient_service.apply_bank_accounts(session, company, company_in.bank_accounts)
     invoice_service.assign_company(session, invoice, company, user=current_user)
     session.commit()
     session.refresh(invoice)

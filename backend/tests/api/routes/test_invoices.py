@@ -223,9 +223,9 @@ def test_approve_requires_company(
 
     company = create_company(db)
     response = client.put(
-        f"/api/v1/invoices/{created['id']}/company",
+        f"/api/v1/invoices/{created['id']}/recipient-company",
         headers=superuser_token_headers,
-        json={"company_id": str(company.id)},
+        json={"recipient_company_id": str(company.id)},
     )
     assert response.status_code == 200
 
@@ -244,9 +244,9 @@ def test_assign_missing_company_404(
     import uuid
 
     response = client.put(
-        f"/api/v1/invoices/{created['id']}/company",
+        f"/api/v1/invoices/{created['id']}/recipient-company",
         headers=superuser_token_headers,
-        json={"company_id": str(uuid.uuid4())},
+        json={"recipient_company_id": str(uuid.uuid4())},
     )
     assert response.status_code == 404
 
@@ -261,9 +261,9 @@ def test_approve_blocked_on_vat_mismatch(
     company = create_company(db)
     created = upload(client, superuser_token_headers).json()
     response = client.put(
-        f"/api/v1/invoices/{created['id']}/company",
+        f"/api/v1/invoices/{created['id']}/recipient-company",
         headers=superuser_token_headers,
-        json={"company_id": str(company.id)},
+        json={"recipient_company_id": str(company.id)},
     )
     assert response.status_code == 200
     response = client.put(
@@ -340,7 +340,7 @@ def test_create_company_for_invoice(
     created = upload(client, superuser_token_headers).json()
     ico = str(random.randrange(10000000, 99999999))
     response = client.post(
-        f"/api/v1/invoices/{created['id']}/company/create",
+        f"/api/v1/invoices/{created['id']}/recipient-company/create",
         headers=superuser_token_headers,
         json={
             "name": "Nová Partnerská s.r.o.",
@@ -370,7 +370,7 @@ def test_create_company_for_invoice_duplicate_ico(
         "count"
     ]
     response = client.post(
-        f"/api/v1/invoices/{created['id']}/company/create",
+        f"/api/v1/invoices/{created['id']}/recipient-company/create",
         headers=superuser_token_headers,
         json={"name": "X", "ico": existing.ico, "bank_account": "123456789/0100"},
     )
@@ -390,7 +390,7 @@ def test_create_company_for_invoice_invalid_ico(
 ):
     created = upload(client, superuser_token_headers).json()
     response = client.post(
-        f"/api/v1/invoices/{created['id']}/company/create",
+        f"/api/v1/invoices/{created['id']}/recipient-company/create",
         headers=superuser_token_headers,
         json={"name": "X", "ico": "bad", "bank_account": "123456789/0100"},
     )
@@ -402,7 +402,7 @@ def test_create_company_for_invoice_exported_forbidden(
 ):
     invoice = create_invoice(db, InvoiceState.EXPORTED)
     response = client.post(
-        f"/api/v1/invoices/{invoice.id}/company/create",
+        f"/api/v1/invoices/{invoice.id}/recipient-company/create",
         headers=superuser_token_headers,
         json={
             "name": "X",
@@ -538,9 +538,9 @@ def test_locked_while_parsing(
 
     company = create_company(db)
     response = client.put(
-        f"/api/v1/invoices/{invoice.id}/company",
+        f"/api/v1/invoices/{invoice.id}/recipient-company",
         headers=superuser_token_headers,
-        json={"company_id": str(company.id)},
+        json={"recipient_company_id": str(company.id)},
     )
     assert response.status_code == 409
 

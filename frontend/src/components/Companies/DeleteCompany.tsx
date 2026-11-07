@@ -2,7 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { CompaniesService, type CompanyPublic, UtilsService } from "@/client"
+import {
+  CompaniesService,
+  type RecipientCompanyPublic,
+  UtilsService,
+} from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -22,7 +26,7 @@ const DeleteCompany = ({
   company,
   onSuccess,
 }: {
-  company: CompanyPublic
+  company: RecipientCompanyPublic
   onSuccess: () => void
 }) => {
   const { t } = useTranslation()
@@ -38,7 +42,9 @@ const DeleteCompany = ({
   const { mutate: deleteCompany, isPending } = useMutation({
     mutationKey: ["deleteCompany", company.id],
     mutationFn: () =>
-      CompaniesService.deleteCompany({ path: { company_id: company.id } }),
+      CompaniesService.deleteCompany({
+        path: { recipient_company_id: company.id },
+      }),
     onSuccess: () => {
       showSuccessToast(t("companies.deleted"))
       onSuccess()

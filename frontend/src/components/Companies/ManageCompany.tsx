@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next"
 
 import {
   CompaniesService,
-  type CompanyApiKeyPublic,
-  type CompanyPublic,
   type MembershipPublic,
+  type RecipientApiKeyPublic,
+  type RecipientCompanyPublic,
 } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -49,7 +49,7 @@ function MemberRow({
     mutationFn: (role: string) =>
       CompaniesService.updateMemberRole({
         body: { role: role as "admin" | "editor" },
-        path: { company_id: companyId, membership_id: member.id },
+        path: { recipient_company_id: companyId, membership_id: member.id },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company-members"] })
@@ -61,7 +61,7 @@ function MemberRow({
   const remove = useMutation({
     mutationFn: () =>
       CompaniesService.removeMember({
-        path: { company_id: companyId, membership_id: member.id },
+        path: { recipient_company_id: companyId, membership_id: member.id },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company-members"] })
@@ -123,7 +123,7 @@ function ApiKeyRow({
   keyItem,
   companyId,
 }: {
-  keyItem: CompanyApiKeyPublic
+  keyItem: RecipientApiKeyPublic
   companyId: string
 }) {
   const { t } = useTranslation()
@@ -133,7 +133,7 @@ function ApiKeyRow({
   const revoke = useMutation({
     mutationFn: () =>
       CompaniesService.revokeApiKey({
-        path: { company_id: companyId, key_id: keyItem.id },
+        path: { recipient_company_id: companyId, key_id: keyItem.id },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company-api-keys"] })
@@ -177,7 +177,11 @@ function ApiKeyRow({
   )
 }
 
-export function ManageCompany({ company }: { company: CompanyPublic }) {
+export function ManageCompany({
+  company,
+}: {
+  company: RecipientCompanyPublic
+}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -194,7 +198,7 @@ export function ManageCompany({ company }: { company: CompanyPublic }) {
     queryFn: async () =>
       (
         await CompaniesService.listMembers({
-          path: { company_id: company.id },
+          path: { recipient_company_id: company.id },
         })
       ).data,
     enabled: open,
@@ -205,7 +209,7 @@ export function ManageCompany({ company }: { company: CompanyPublic }) {
     queryFn: async () =>
       (
         await CompaniesService.listApiKeys({
-          path: { company_id: company.id },
+          path: { recipient_company_id: company.id },
         })
       ).data,
     enabled: open,
@@ -215,7 +219,7 @@ export function ManageCompany({ company }: { company: CompanyPublic }) {
     mutationFn: () =>
       CompaniesService.addMember({
         body: { email, role },
-        path: { company_id: company.id },
+        path: { recipient_company_id: company.id },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company-members"] })
@@ -229,7 +233,7 @@ export function ManageCompany({ company }: { company: CompanyPublic }) {
     mutationFn: () =>
       CompaniesService.createApiKey({
         body: { label },
-        path: { company_id: company.id },
+        path: { recipient_company_id: company.id },
       }),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["company-api-keys"] })

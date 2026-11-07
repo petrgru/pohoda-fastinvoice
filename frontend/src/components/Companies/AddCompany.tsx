@@ -12,7 +12,6 @@ import {
 } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
-
 import { CompaniesService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
 /** Loose client-side check mirroring the backend validator (mod-11 is NOT
@@ -203,39 +203,57 @@ export const CompanyFields = ({
   const { t } = useTranslation()
   const control = rawControl as Control<CompanyFormData>
   // shares the parent form state – we need setValue/setError for the autofill
-  const { setValue, setError, clearErrors } = useFormContext<CompanyFormData>()
+  const { setValue, setError, clearErrors, getValues } =
+    useFormContext<CompanyFormData>()
   const {
     fields: extraAccounts,
     append: appendAccount,
     remove: removeAccount,
   } = useFieldArray({ control, name: "other_accounts" })
   const dic = (useWatch({ control, name: "dic" }) ?? "").trim()
+  const ico = (useWatch({ control, name: "ico" }) ?? "").trim()
   const normalized = dic.replace(/\s/g, "").toUpperCase()
   const [vatState, setVatState] = useState<VatState>("idle")
   const lastChecked = useRef("")
 
-  const checkVat = async () => {
-    if (!normalized || normalized === lastChecked.current) {
+  // registry data only pre-fills fields the user has not touched yet
+  const fillEmptyFields = (data: {
+    name?: string | null
+    address?: string | null
+  }) => {
+    if (data.name && !(getValues("name") ?? "").trim()) {
+      setValue("name", data.name, { shouldDirty: true })
+    }
+    if (data.address && !(getValues("address") ?? "").trim()) {
+      setValue("address", data.address, { shouldDirty: true })
+    }
+  }
+
+  const checkVat = async (
+    value?: string,
+    options?: { fallbackFromIco?: boolean },
+  ) => {
+    const fallback = options?.fallbackFromIco ?? false
+    const target = (value ?? normalized).replace(/\s/g, "").toUpperCase()
+    if (!target || target === lastChecked.current) {
       return
     }
-    if (!DIC_FORMAT.test(normalized)) {
+    if (!DIC_FORMAT.test(target)) {
       return // zod reports the format error; no registry call
     }
-    lastChecked.current = normalized
+    lastChecked.current = target
     setVatState("checking")
     try {
       const { data } = await CompaniesService.getVatInfo({
-        query: { dic: normalized },
+        query: { dic: target },
       })
       if (data.valid) {
         setVatState("idle")
         clearErrors("dic")
-        if (data.name) {
-          setValue("name", data.name, { shouldDirty: true })
-        }
-        if (data.address) {
-          setValue("address", data.address, { shouldDirty: true })
-        }
+        fillEmptyFields(data)
+      } else if (fallback) {
+        // the IČO is simply not a VAT payer – nothing to pre-fill, no error
+        setVatState("idle")
       } else {
         setVatState("invalid")
         setError("dic", { type: "vat", message: t("companyFields.vatInvalid") })
@@ -243,11 +261,19 @@ export const CompanyFields = ({
     } catch (error) {
       if (error instanceof AxiosError && error.response?.status === 502) {
         // registry unreachable -> warn, do not block saving (backend fails open)
-        setVatState("unavailable")
+        setVatState(fallback ? "idle" : "unavailable")
       } else {
         setVatState("idle")
       }
     }
+  }
+
+  // no DIČ known -> a Czech IČO doubles as DIČ CZ<IČO> for VAT payers
+  const lookupByIco = () => {
+    if (normalized || !/^\d{8}$/.test(ico)) {
+      return
+    }
+    void checkVat(`CZ${ico}`, { fallbackFromIco: true })
   }
 
   // editing the DIČ invalidates any previous registry verdict
@@ -262,11 +288,16 @@ export const CompanyFields = ({
     }
   }, [normalized, control, clearErrors])
 
-  // dialogs with a prefilled DIČ (created from an invoice) check it right away
+  // dialogs with prefilled data (created from an invoice) look the recipient
+  // up in the registry right away – by DIČ, or by CZ<IČO> when there is none
   // biome-ignore lint/correctness/useExhaustiveDependencies: run once on dialog mount
   useEffect(() => {
     if (autoLookup) {
-      void checkVat()
+      if (normalized) {
+        void checkVat()
+      } else {
+        lookupByIco()
+      }
     }
   }, [])
 
@@ -306,6 +337,10 @@ export const CompanyFields = ({
                 placeholder={t("companyFields.icoPlaceholder")}
                 {...field}
                 disabled={disabled}
+                onBlur={() => {
+                  field.onBlur()
+                  lookupByIco()
+                }}
               />
             </FormControl>
             <FormMessage />
@@ -329,25 +364,29 @@ export const CompanyFields = ({
                 }}
               />
             </FormControl>
-            {vatState === "checking" && (
-              <p
-                className="flex items-center gap-1 text-xs text-muted-foreground"
-                data-testid="vat-status"
-              >
-                <Loader2 className="size-3 animate-spin" />
-                {t("companyFields.vatChecking")}
-              </p>
-            )}
-            {vatState === "invalid" && (
-              <p className="text-xs text-destructive" data-testid="vat-status">
-                {t("companyFields.vatInvalid")}
-              </p>
-            )}
-            {vatState === "unavailable" && (
-              <p className="text-xs text-amber-600" data-testid="vat-status">
-                {t("companyFields.vatUnavailable")}
-              </p>
-            )}
+            {/* the row always occupies its space – appearing/disappearing it
+                shifted the layout and swallowed the first click on Create */}
+            <p
+              data-testid="vat-status"
+              aria-hidden={vatState === "idle"}
+              className={cn(
+                "flex items-center gap-1 text-xs",
+                vatState === "checking" && "text-muted-foreground",
+                vatState === "invalid" && "text-destructive",
+                vatState === "unavailable" && "text-amber-600",
+                vatState === "idle" && "invisible",
+              )}
+            >
+              {vatState === "checking" && (
+                <>
+                  <Loader2 className="size-3 animate-spin" />
+                  {t("companyFields.vatChecking")}
+                </>
+              )}
+              {vatState === "invalid" && t("companyFields.vatInvalid")}
+              {vatState === "unavailable" && t("companyFields.vatUnavailable")}
+              {vatState === "idle" && "\u00a0"}
+            </p>
             <FormMessage />
           </FormItem>
         )}

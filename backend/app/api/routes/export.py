@@ -16,9 +16,6 @@ from sqlmodel import Session, col, select
 from app.api.deps import SessionDep
 from app.core.config import settings
 from app.models import (
-    Company,
-    CompanyApiKey,
-    CompanyPublic,
     ExportBatch,
     ExportQueueItem,
     ExportQueuePublic,
@@ -26,10 +23,13 @@ from app.models import (
     Invoice,
     InvoiceState,
     Message,
+    RecipientApiKey,
+    RecipientCompany,
+    RecipientCompanyPublic,
     as_vat_items,
 )
-from app.services import company_access, storage
 from app.services import invoices as invoice_service
+from app.services import recipient_access, storage
 
 router = APIRouter(prefix="/export", tags=["export"])
 
@@ -44,7 +44,7 @@ def require_export_access(
     global_enabled = bool(settings.EXPORT_API_KEY)
     has_company_keys = (
         session.exec(
-            select(CompanyApiKey.id).where(col(CompanyApiKey.revoked_at).is_(None))
+            select(RecipientApiKey.id).where(col(RecipientApiKey.revoked_at).is_(None))
         ).first()
         is not None
     )
@@ -55,36 +55,34 @@ def require_export_access(
         )
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Neplatný API klíč")
-    if global_enabled and secrets.compare_digest(x_api_key, settings.EXPORT_API_KEY):
+    expected = settings.EXPORT_API_KEY or ""
+    if global_enabled and secrets.compare_digest(x_api_key, expected):
         return None
-    key = company_access.resolve_api_key(session, x_api_key)
+    key = recipient_access.resolve_api_key(session, x_api_key)
     if key is None:
         raise HTTPException(status_code=401, detail="Neplatný API klíč")
-    return key.company_id
+    return key.recipient_company_id
 
 
 def _assert_company_scope(
-    company_id: GlobalOrCompany, invoice_company_id: UUID | None
+    recipient_company_id: GlobalOrCompany, invoice_company_id: UUID | None
 ) -> None:
-    if company_id is not None and invoice_company_id != company_id:
+    if recipient_company_id is not None and invoice_company_id != recipient_company_id:
         raise HTTPException(status_code=404, detail="Faktura nenalezena")
 
 
-router = APIRouter(prefix="/export", tags=["export"])
-
-
 def _exportable_invoices(
-    session: Session, company_id: GlobalOrCompany = None
+    session: Session, recipient_company_id: GlobalOrCompany = None
 ) -> list[Invoice]:
     query = (
         select(Invoice)
         .where(Invoice.state == InvoiceState.READY_FOR_EXPORT.value)
-        .where(col(Invoice.company_id).is_not(None))
+        .where(col(Invoice.recipient_company_id).is_not(None))
         .where(col(Invoice.approved_at).is_not(None))
         .order_by(col(Invoice.approved_at).asc())
     )
-    if company_id is not None:
-        query = query.where(col(Invoice.company_id) == company_id)
+    if recipient_company_id is not None:
+        query = query.where(col(Invoice.recipient_company_id) == recipient_company_id)
     return list(session.exec(query).all())
 
 
@@ -97,7 +95,9 @@ def get_export_queue(
     items: list[ExportQueueItem] = []
     for invoice in _exportable_invoices(session, scope):
         company = (
-            session.get(Company, invoice.company_id) if invoice.company_id else None
+            session.get(RecipientCompany, invoice.recipient_company_id)
+            if invoice.recipient_company_id
+            else None
         )
         if company is None or not company.is_active:
             continue
@@ -108,7 +108,7 @@ def get_export_queue(
                 original_filename=invoice.original_filename,
                 content_type=invoice.content_type,
                 export_url=f"{settings.API_V1_STR}/export/invoices/{invoice.id}/file",
-                company=CompanyPublic.model_validate(company),
+                company=RecipientCompanyPublic.model_validate(company),
                 invoice_number=invoice.invoice_number,
                 document_type=invoice.document_type,
                 issue_date=invoice.issue_date,
@@ -133,7 +133,7 @@ def get_export_file(
     invoice = session.get(Invoice, invoice_id)
     if not invoice:
         raise HTTPException(status_code=404, detail="Faktura nenalezena")
-    _assert_company_scope(scope, invoice.company_id)
+    _assert_company_scope(scope, invoice.recipient_company_id)
     if invoice.state not in (
         InvoiceState.READY_FOR_EXPORT.value,
         InvoiceState.EXPORTED.value,
@@ -156,7 +156,7 @@ def report_export_result(
     invoice = session.get(Invoice, result.invoice_id)
     if not invoice:
         raise HTTPException(status_code=404, detail="Faktura nenalezena")
-    _assert_company_scope(scope, invoice.company_id)
+    _assert_company_scope(scope, invoice.recipient_company_id)
 
     state = InvoiceState(invoice.state)
     if result.success:
@@ -171,7 +171,9 @@ def report_export_result(
                 detail="Faktura není ve frontě k exportu (chybí firma nebo schválení)",
             )
         company = (
-            session.get(Company, invoice.company_id) if invoice.company_id else None
+            session.get(RecipientCompany, invoice.recipient_company_id)
+            if invoice.recipient_company_id
+            else None
         )
         if company is None:
             raise HTTPException(

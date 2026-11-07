@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
 
-import { CompaniesService, type CompanyPublic } from "@/client"
+import { CompaniesService, type RecipientCompanyPublic } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -34,7 +34,7 @@ const EditCompany = ({
   company,
   onSuccess,
 }: {
-  company: CompanyPublic
+  company: RecipientCompanyPublic
   onSuccess: () => void
 }) => {
   const { t } = useTranslation()
@@ -62,7 +62,7 @@ const EditCompany = ({
   const mutation = useMutation({
     mutationFn: (data: EditFormData) =>
       CompaniesService.updateCompany({
-        path: { company_id: company.id },
+        path: { recipient_company_id: company.id },
         body: {
           name: data.name,
           ico: data.ico,

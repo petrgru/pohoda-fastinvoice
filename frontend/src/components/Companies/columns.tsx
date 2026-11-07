@@ -2,7 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
-import type { CompanyPublic } from "@/client"
+import type { RecipientCompanyPublic } from "@/client"
 import type { DataTableFeatures } from "@/components/Common/DataTable"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,7 @@ import { ManageCompany } from "./ManageCompany"
 
 export function useCompanyColumns() {
   const { t } = useTranslation()
-  return useMemo<ColumnDef<DataTableFeatures, CompanyPublic>[]>(
+  return useMemo<ColumnDef<DataTableFeatures, RecipientCompanyPublic>[]>(
     () => [
       {
         accessorKey: "name",

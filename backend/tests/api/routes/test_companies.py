@@ -32,8 +32,10 @@ def test_create_and_get_company(
         },
     )
     assert response.status_code == 201
-    company_id = response.json()["id"]
-    detail = client.get(f"{API}/{company_id}", headers=superuser_token_headers)
+    recipient_company_id = response.json()["id"]
+    detail = client.get(
+        f"{API}/{recipient_company_id}", headers=superuser_token_headers
+    )
     assert detail.status_code == 200
     assert detail.json()["name"] == "Novak Trading a.s."
 
@@ -126,8 +128,10 @@ def test_create_company_with_address(
         },
     )
     assert response.status_code == 201, response.text
-    company_id = response.json()["id"]
-    detail = client.get(f"{API}/{company_id}", headers=superuser_token_headers)
+    recipient_company_id = response.json()["id"]
+    detail = client.get(
+        f"{API}/{recipient_company_id}", headers=superuser_token_headers
+    )
     assert detail.json()["address"] == "Nákladní 3002/2, 74601 Opava"
 
 
