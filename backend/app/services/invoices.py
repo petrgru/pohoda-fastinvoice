@@ -480,6 +480,23 @@ def to_public(session: Session, invoice: Invoice) -> InvoicePublic:
     public.vat_rate_warnings = vat_rate_warnings(
         as_vat_items(invoice.vat_items), dic, iban
     )
+    from app.services import account_integrity
+
+    public.account_matches_document = account_integrity.matches_document(invoice)
+    public.document_bank_accounts = (
+        sorted(account_integrity.document_accounts(invoice) or []) or None
+    )
+    public.account_matches_supplier = account_integrity.matches_supplier(
+        session, invoice
+    )
+    supplier = account_integrity.find_supplier(session, invoice)
+    if supplier is not None:
+        confirmed = sorted(
+            account
+            for account, ok in account_integrity.known_accounts(supplier).items()
+            if ok
+        )
+        public.supplier_confirmed_accounts = confirmed or None
     return public
 
 
@@ -546,6 +563,19 @@ def apply_parsed(invoice: Invoice, parsed: ParsedInvoice) -> None:
         if value is not None:
             setattr(invoice, field, value)
     invoice.llm_confidence = parsed.confidence
+    # the document baseline for fraud detection – written once, never rewritten
+    if invoice.parsed_snapshot is None:
+        invoice.parsed_snapshot = {
+            field: mapping.get(field)
+            for field in (
+                "supplier_name",
+                "supplier_ico",
+                "supplier_dic",
+                "supplier_bank_account",
+                "supplier_iban",
+                "supplier_bank_accounts",
+            )
+        }
 
 
 def process_invoice(invoice_id: uuid.UUID) -> None:
@@ -585,6 +615,10 @@ def process_invoice(invoice_id: uuid.UUID) -> None:
             apply_parsed(invoice, parsed)
             recompute_derived(invoice)
             assign_recipient_company(session, invoice)
+            # lazy import: account_integrity uses log_audit from this module
+            from app.services import account_integrity
+
+            account_integrity.upsert_from_invoice(session, invoice)
         else:
             if not invoice.parse_error:
                 invoice.parse_error = "Nepodařilo se strukturovat obsah dokladu"

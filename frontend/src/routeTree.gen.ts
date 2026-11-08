@@ -19,6 +19,7 @@ import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutCompaniesRouteImport } from './routes/_layout/companies'
 import { Route as LayoutQueueRouteImport } from './routes/_layout/queue'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutSuppliersRouteImport } from './routes/_layout/suppliers'
 import { Route as LayoutInvoicesIndexRouteImport } from './routes/_layout/invoices/index'
 import { Route as LayoutInvoicesInvoiceIdRouteImport } from './routes/_layout/invoices/$invoiceId'
 
@@ -71,6 +72,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutSuppliersRoute = LayoutSuppliersRouteImport.update({
+  id: '/suppliers',
+  path: '/suppliers',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutInvoicesIndexRoute = LayoutInvoicesIndexRouteImport.update({
   id: '/invoices/',
   path: '/invoices/',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/companies': typeof LayoutCompaniesRoute
   '/queue': typeof LayoutQueueRoute
   '/settings': typeof LayoutSettingsRoute
+  '/suppliers': typeof LayoutSuppliersRoute
   '/invoices/$invoiceId': typeof LayoutInvoicesInvoiceIdRoute
   '/invoices/': typeof LayoutInvoicesIndexRoute
 }
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/companies': typeof LayoutCompaniesRoute
   '/queue': typeof LayoutQueueRoute
   '/settings': typeof LayoutSettingsRoute
+  '/suppliers': typeof LayoutSuppliersRoute
   '/': typeof LayoutIndexRoute
   '/invoices/$invoiceId': typeof LayoutInvoicesInvoiceIdRoute
   '/invoices': typeof LayoutInvoicesIndexRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/_layout/companies': typeof LayoutCompaniesRoute
   '/_layout/queue': typeof LayoutQueueRoute
   '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/suppliers': typeof LayoutSuppliersRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/invoices/$invoiceId': typeof LayoutInvoicesInvoiceIdRoute
   '/_layout/invoices/': typeof LayoutInvoicesIndexRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/companies'
     | '/queue'
     | '/settings'
+    | '/suppliers'
     | '/invoices/$invoiceId'
     | '/invoices/'
   fileRoutesByTo: FileRoutesByTo
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/companies'
     | '/queue'
     | '/settings'
+    | '/suppliers'
     | '/'
     | '/invoices/$invoiceId'
     | '/invoices'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/_layout/companies'
     | '/_layout/queue'
     | '/_layout/settings'
+    | '/_layout/suppliers'
     | '/_layout/'
     | '/_layout/invoices/$invoiceId'
     | '/_layout/invoices/'
@@ -246,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/suppliers': {
+      id: '/_layout/suppliers'
+      path: '/suppliers'
+      fullPath: '/suppliers'
+      preLoaderRoute: typeof LayoutSuppliersRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/invoices/': {
       id: '/_layout/invoices/'
       path: '/invoices'
@@ -268,6 +287,7 @@ interface LayoutRouteChildren {
   LayoutCompaniesRoute: typeof LayoutCompaniesRoute
   LayoutQueueRoute: typeof LayoutQueueRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutSuppliersRoute: typeof LayoutSuppliersRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutInvoicesInvoiceIdRoute: typeof LayoutInvoicesInvoiceIdRoute
   LayoutInvoicesIndexRoute: typeof LayoutInvoicesIndexRoute
@@ -278,6 +298,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutCompaniesRoute: LayoutCompaniesRoute,
   LayoutQueueRoute: LayoutQueueRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutSuppliersRoute: LayoutSuppliersRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutInvoicesInvoiceIdRoute: LayoutInvoicesInvoiceIdRoute,
   LayoutInvoicesIndexRoute: LayoutInvoicesIndexRoute,

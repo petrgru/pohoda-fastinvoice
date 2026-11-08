@@ -17,6 +17,7 @@
     "invoices": "Invoices",
     "queue": "Task Queue",
     "companies": "Our companies",
+    "suppliers": "Suppliers",
     "admin": "Admin",
     "language": "Language"
   },
@@ -108,7 +109,16 @@
     "rateUnusual": "Rate {{rate}} is unusual for {{country}}",
     "recipientTitle": "Detected recipient",
     "recipientText": "The document lists {{name}} as the recipient. Pick your company below.",
-    "recipientFallback": "Recipient from the document"
+    "recipientFallback": "Recipient from the document",
+    "accountChangedDocTitle": "Account differs from the document",
+    "accountChangedDocText": "The document shows {{document}}. Check that the account number matches the supplier's bank.",
+    "accountChangedSupplierTitle": "Account differs from other invoices",
+    "accountChangedSupplierText": "The supplier has a confirmed account {{confirmed}}. A swapped account is a common fraud pattern.",
+    "accountDiffTitle": "Really change the bank account?",
+    "accountDiffText": "The document contains {{document}}{{supplierPart}}. The change is saved only after you confirm it.",
+    "accountDiffSupplierPart": ", the supplier's confirmed account is {{confirmed}}",
+    "accountDiffKeep": "Discard change",
+    "accountDiffConfirm": "Yes, the account is correct"
   },
   "companies": {
     "title": "Our companies",
@@ -135,6 +145,31 @@
     "deleteCascadeHint": "Development mode: all assigned invoices including files will be deleted.",
     "emptyTitle": "No company yet",
     "emptyHint": "Add your first company – uploaded documents are then assigned to it automatically."
+  },
+  "suppliers": {
+    "title": "Suppliers",
+    "subtitle": "Companies that issued invoices to you. Accounts confirmed on invoices act as a tampering guard.",
+    "searchPlaceholder": "Search by name or ID…",
+    "colName": "Name",
+    "colIco": "ID",
+    "colAccounts": "Accounts",
+    "colInvoices": "Invoices",
+    "colLastInvoice": "Last invoice",
+    "manage": "Manage",
+    "manageTitle": "Manage supplier",
+    "name": "Name",
+    "dic": "VAT ID",
+    "accounts": "Bank accounts",
+    "accountsHint": "Tick the accounts you have verified – deviations from them will ask for confirmation again.",
+    "accountPlaceholder": "123456789/0100",
+    "confirmed": "Verified",
+    "addAccount": "Add account",
+    "removeAccount": "Remove account",
+    "invoices": "Invoices from this supplier",
+    "docNumber": "Document",
+    "total": "Total",
+    "createdAt": "Imported",
+    "saved": "Supplier saved"
   },
   "companyFields": {
     "name": "Name",
@@ -206,7 +241,9 @@
     "member_exists": "The user is already a member of the company",
     "member_not_found": "Member not found",
     "api_key_not_found": "Key not found",
-    "last_company_admin": "The company must keep at least one administrator"
+    "last_company_admin": "The company must keep at least one administrator",
+    "account_changed_confirm": "The bank account differs from the document or the supplier history – confirm the change",
+    "supplier_not_found": "Supplier not found"
   },
   "login": {
     "title": "Log in",

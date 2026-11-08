@@ -480,6 +480,26 @@ export type InvoicePublic = {
      */
     exported_at?: string | null;
     /**
+     * Account Confirmed At
+     */
+    account_confirmed_at?: string | null;
+    /**
+     * Account Matches Document
+     */
+    account_matches_document?: boolean | null;
+    /**
+     * Account Matches Supplier
+     */
+    account_matches_supplier?: boolean | null;
+    /**
+     * Document Bank Accounts
+     */
+    document_bank_accounts?: Array<string> | null;
+    /**
+     * Supplier Confirmed Accounts
+     */
+    supplier_confirmed_accounts?: Array<string> | null;
+    /**
      * Can Delete
      */
     can_delete?: boolean;
@@ -565,6 +585,10 @@ export type InvoiceStatsBucket = {
  * User corrections of parsed fields; recalculation happens in crud.
  */
 export type InvoiceUpdate = {
+    /**
+     * Confirm Account Change
+     */
+    confirm_account_change?: boolean;
     /**
      * Invoice Number
      */
@@ -1009,6 +1033,96 @@ export type SupplierBankAccount = {
      * Iban
      */
     iban?: string | null;
+};
+
+/**
+ * SupplierKnownAccount
+ *
+ * Payment account of a known supplier.
+ *
+ * ``confirmed`` marks an account the user explicitly verified – confirming a
+ * changed account on an invoice makes it the reference for later invoices
+ * from the same supplier (fraud-detection baseline).
+ */
+export type SupplierKnownAccount = {
+    /**
+     * Account
+     */
+    account?: string | null;
+    /**
+     * Iban
+     */
+    iban?: string | null;
+    /**
+     * Confirmed
+     */
+    confirmed?: boolean;
+};
+
+/**
+ * SupplierPublic
+ */
+export type SupplierPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Ico
+     */
+    ico?: string | null;
+    /**
+     * Dic
+     */
+    dic?: string | null;
+    /**
+     * Bank Accounts
+     */
+    bank_accounts?: Array<SupplierKnownAccount>;
+    /**
+     * Invoice Count
+     */
+    invoice_count?: number;
+    /**
+     * Last Invoice At
+     */
+    last_invoice_at?: string | null;
+};
+
+/**
+ * SupplierUpdate
+ */
+export type SupplierUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Dic
+     */
+    dic?: string | null;
+    /**
+     * Bank Accounts
+     */
+    bank_accounts?: Array<SupplierKnownAccount> | null;
+};
+
+/**
+ * SuppliersPublic
+ */
+export type SuppliersPublic = {
+    /**
+     * Data
+     */
+    data: Array<SupplierPublic>;
+    /**
+     * Count
+     */
+    count: number;
 };
 
 /**
@@ -2786,6 +2900,143 @@ export type dataGetInvoiceFileResponses = {
      */
     200: unknown;
 };
+
+export type suppliersListSuppliersData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Q
+         */
+        q?: string | null;
+    };
+    url: '/api/v1/suppliers';
+};
+
+export type suppliersListSuppliersErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type suppliersListSuppliersError = suppliersListSuppliersErrors[keyof suppliersListSuppliersErrors];
+
+export type suppliersListSuppliersResponses = {
+    /**
+     * Successful Response
+     */
+    200: SuppliersPublic;
+};
+
+export type suppliersListSuppliersResponse = suppliersListSuppliersResponses[keyof suppliersListSuppliersResponses];
+
+export type suppliersGetSupplierData = {
+    body?: never;
+    path: {
+        /**
+         * Supplier Id
+         */
+        supplier_id: string;
+    };
+    query?: never;
+    url: '/api/v1/suppliers/{supplier_id}';
+};
+
+export type suppliersGetSupplierErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type suppliersGetSupplierError = suppliersGetSupplierErrors[keyof suppliersGetSupplierErrors];
+
+export type suppliersGetSupplierResponses = {
+    /**
+     * Successful Response
+     */
+    200: SupplierPublic;
+};
+
+export type suppliersGetSupplierResponse = suppliersGetSupplierResponses[keyof suppliersGetSupplierResponses];
+
+export type suppliersUpdateSupplierData = {
+    body: SupplierUpdate;
+    path: {
+        /**
+         * Supplier Id
+         */
+        supplier_id: string;
+    };
+    query?: never;
+    url: '/api/v1/suppliers/{supplier_id}';
+};
+
+export type suppliersUpdateSupplierErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type suppliersUpdateSupplierError = suppliersUpdateSupplierErrors[keyof suppliersUpdateSupplierErrors];
+
+export type suppliersUpdateSupplierResponses = {
+    /**
+     * Successful Response
+     */
+    200: SupplierPublic;
+};
+
+export type suppliersUpdateSupplierResponse = suppliersUpdateSupplierResponses[keyof suppliersUpdateSupplierResponses];
+
+export type suppliersSupplierInvoicesData = {
+    body?: never;
+    path: {
+        /**
+         * Supplier Id
+         */
+        supplier_id: string;
+    };
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/suppliers/{supplier_id}/invoices';
+};
+
+export type suppliersSupplierInvoicesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type suppliersSupplierInvoicesError = suppliersSupplierInvoicesErrors[keyof suppliersSupplierInvoicesErrors];
+
+export type suppliersSupplierInvoicesResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvoicesPublic;
+};
+
+export type suppliersSupplierInvoicesResponse = suppliersSupplierInvoicesResponses[keyof suppliersSupplierInvoicesResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

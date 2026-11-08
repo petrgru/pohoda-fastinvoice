@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { AxiosError } from "axios"
 import {
   AlertTriangle,
   ArrowLeft,
@@ -10,7 +11,7 @@ import {
   RotateCcw,
   X,
 } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useFieldArray, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
@@ -23,6 +24,14 @@ import { InvoicePreview } from "@/components/Invoices/InvoicePreview"
 import { StateBadge } from "@/components/Invoices/StateBadge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Form,
   FormControl,
@@ -53,6 +62,16 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { intlLocale } from "@/i18n"
 import { handleError, translateServerMessage } from "@/utils"
+
+/** 409 raised when the proposed account deviates from document/supplier history */
+function isAccountConfirmConflict(err: unknown): boolean {
+  return (
+    err instanceof AxiosError &&
+    err.response?.status === 409 &&
+    (err.response?.data as { detail?: unknown } | undefined)?.detail ===
+      "errors.account_changed_confirm"
+  )
+}
 
 type FormData = {
   invoice_number?: string
@@ -162,8 +181,13 @@ function InvoiceDetail() {
     queryClient.invalidateQueries({ queryKey: ["queue"] })
   }
 
+  // form awaiting the user's "the account is really correct" confirmation
+  const [accountConfirmData, setAccountConfirmData] = useState<FormData | null>(
+    null,
+  )
+
   const saveMutation = useMutation({
-    mutationFn: (data: FormData) => {
+    mutationFn: ({ data, confirm }: { data: FormData; confirm: boolean }) => {
       const body: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(data)) {
         if (key === "supplier_bank_accounts") {
@@ -174,6 +198,7 @@ function InvoiceDetail() {
         }
         if (value !== undefined && value !== "") body[key] = value
       }
+      if (confirm) body.confirm_account_change = true
       return InvoicesService.updateInvoice({
         path: { invoice_id: invoiceId },
         body: body as never,
@@ -182,8 +207,17 @@ function InvoiceDetail() {
     onSuccess: () => {
       showSuccessToast(t("invoice.saved"))
       invalidate()
+      setAccountConfirmData(null)
     },
-    onError: handleError.bind(showErrorToast),
+    onError: (err, { confirm }) => {
+      // 409 = the account deviates from the document/supplier baseline:
+      // show the tampering dialog, resend only after the user confirms
+      if (!confirm && isAccountConfirmConflict(err)) {
+        setAccountConfirmData(saveMutation.variables?.data ?? ({} as FormData))
+        return
+      }
+      handleError.call(showErrorToast, err)
+    },
   })
 
   const assignMutation = useMutation({
@@ -331,6 +365,36 @@ function InvoiceDetail() {
         </Alert>
       )}
 
+      {invoice.account_matches_document === false && (
+        <Alert
+          className="border-amber-500/50 bg-amber-500/10"
+          data-testid="account-doc-warning"
+        >
+          <AlertTriangle className="size-4" />
+          <AlertTitle>{t("invoice.accountChangedDocTitle")}</AlertTitle>
+          <AlertDescription>
+            {t("invoice.accountChangedDocText", {
+              document: invoice.document_bank_accounts?.join(" · ") ?? "—",
+            })}
+          </AlertDescription>
+        </Alert>
+      )}
+      {invoice.account_matches_supplier === false && (
+        <Alert
+          className="border-amber-500/50 bg-amber-500/10"
+          data-testid="account-supplier-warning"
+        >
+          <AlertTriangle className="size-4" />
+          <AlertTitle>{t("invoice.accountChangedSupplierTitle")}</AlertTitle>
+          <AlertDescription>
+            {t("invoice.accountChangedSupplierText", {
+              confirmed:
+                invoice.supplier_confirmed_accounts?.join(" · ") ?? "—",
+            })}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="flex flex-col gap-2">
           <h2 className="font-semibold">{t("invoice.document")}</h2>
@@ -388,7 +452,9 @@ function InvoiceDetail() {
 
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))}
+              onSubmit={form.handleSubmit((data) =>
+                saveMutation.mutate({ data, confirm: false }),
+              )}
               className="flex flex-col gap-4"
             >
               <h2 className="font-semibold">{t("invoice.accounting")}</h2>
@@ -452,7 +518,11 @@ function InvoiceDetail() {
                     <FormItem>
                       <FormLabel>{t("invoice.bankAccount")}</FormLabel>
                       <FormControl>
-                        <Input {...field} disabled={!editable} />
+                        <Input
+                          {...field}
+                          disabled={!editable}
+                          data-testid="supplier-bank-account-input"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -624,7 +694,11 @@ function InvoiceDetail() {
               )}
 
               {editable && (
-                <LoadingButton type="submit" loading={saveMutation.isPending}>
+                <LoadingButton
+                  type="submit"
+                  loading={saveMutation.isPending}
+                  data-testid="invoice-save-button"
+                >
                   {t("invoice.saveFields")}
                 </LoadingButton>
               )}
@@ -743,6 +817,52 @@ function InvoiceDetail() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={accountConfirmData !== null}
+        onOpenChange={(open) => {
+          if (!open) setAccountConfirmData(null)
+        }}
+      >
+        <DialogContent data-testid="account-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("invoice.accountDiffTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("invoice.accountDiffText", {
+                document: invoice.document_bank_accounts?.join(" · ") ?? "—",
+                supplierPart: invoice.supplier_confirmed_accounts?.length
+                  ? t("invoice.accountDiffSupplierPart", {
+                      confirmed:
+                        invoice.supplier_confirmed_accounts.join(" · "),
+                    })
+                  : "",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              data-testid="account-confirm-cancel"
+              onClick={() => setAccountConfirmData(null)}
+            >
+              {t("invoice.accountDiffKeep")}
+            </Button>
+            <LoadingButton
+              loading={saveMutation.isPending}
+              data-testid="account-confirm-save"
+              onClick={() =>
+                accountConfirmData &&
+                saveMutation.mutate({
+                  data: accountConfirmData,
+                  confirm: true,
+                })
+              }
+            >
+              {t("invoice.accountDiffConfirm")}
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -304,6 +304,52 @@ class SupplierBankAccount(BankAccountBase):
     """One payment account of the invoice supplier (parsed, user-correctable)."""
 
 
+class SupplierKnownAccount(BankAccountBase):
+    """Payment account of a known supplier.
+
+    ``confirmed`` marks an account the user explicitly verified – confirming a
+    changed account on an invoice makes it the reference for later invoices
+    from the same supplier (fraud-detection baseline).
+    """
+
+    confirmed: bool = False
+
+
+class Supplier(SQLModel, table=True):
+    """A vendor seen on invoices, deduplicated by IČO (name when IČO is absent)."""
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=255, index=True)
+    ico: str | None = Field(default=None, unique=True, index=True, max_length=8)
+    dic: str | None = Field(default=None, max_length=15)
+    bank_accounts: list[dict[str, Any]] | None = Field(
+        default=None, sa_column=Column(JSON)
+    )  # serialized SupplierKnownAccount models (JSON column)
+    created_at: datetime | None = Field(default_factory=get_datetime_utc)
+    updated_at: datetime | None = Field(default_factory=get_datetime_utc)
+
+
+class SupplierPublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    ico: str | None = None
+    dic: str | None = None
+    bank_accounts: list[SupplierKnownAccount] = []
+    invoice_count: int = 0
+    last_invoice_at: datetime | None = None
+
+
+class SuppliersPublic(SQLModel):
+    data: list[SupplierPublic]
+    count: int
+
+
+class SupplierUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    dic: str | None = Field(default=None, max_length=15)
+    bank_accounts: list[SupplierKnownAccount] | None = None
+
+
 class RecipientCompanyCreate(RecipientCompanyBase):
     # Manual company entry requires name and IČO only; the bank account can be
     # added later (companies created from a document usually do not know it).
@@ -665,6 +711,10 @@ class Invoice(SQLModel, table=True):
     supplier_bank_accounts: list[dict[str, Any]] | None = Field(
         default=None, sa_column=Column(JSON)
     )  # serialized SupplierBankAccount models (JSON column)
+    # Original parsed values kept as the document baseline for tampering
+    # detection – written once when parsing completes, never overwritten.
+    parsed_snapshot: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    account_confirmed_at: datetime | None = None
     # Document recipient (the user's own company detected on the document)
     recipient_name: str | None = Field(default=None, max_length=255)
     recipient_ico: str | None = Field(default=None, max_length=8)
@@ -770,6 +820,13 @@ class InvoicePublic(SQLModel):
     approved_by_id: uuid.UUID | None = None
     approved_at: datetime | None = None
     exported_at: datetime | None = None
+    account_confirmed_at: datetime | None = None
+    # Fraud-detection hints: account vs. the parsed document / supplier history
+    account_matches_document: bool | None = None
+    account_matches_supplier: bool | None = None
+    # Baselines behind the hints (for the tampering warning in the UI)
+    document_bank_accounts: list[str] | None = None
+    supplier_confirmed_accounts: list[str] | None = None
     can_delete: bool = True
     queue_reasons: list[str] = []
 
@@ -851,6 +908,9 @@ class RecipientCompanyAssign(SQLModel):
 class InvoiceUpdate(SQLModel):
     """User corrections of parsed fields; recalculation happens in crud."""
 
+    # Set after the user confirms an account change that differs from the
+    # document or the supplier history (see the account-changed 409 flow).
+    confirm_account_change: bool = False
     invoice_number: str | None = Field(default=None, max_length=64)
     supplier_name: str | None = Field(default=None, max_length=255)
     supplier_ico: str | None = Field(default=None, max_length=8)

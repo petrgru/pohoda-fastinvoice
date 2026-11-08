@@ -24,8 +24,8 @@ from app.models import (
     User,
     get_datetime_utc,
 )
+from app.services import account_integrity, recipient_access, search_index, storage
 from app.services import invoices as invoice_service
-from app.services import recipient_access, search_index, storage
 from app.services import recipients as recipient_service
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -317,12 +317,21 @@ def update_invoice(
     _assert_mutable(invoice)
     _assert_parsed(invoice)
     changes = invoice_in.model_dump(exclude_unset=True)
+    confirm_account = changes.pop("confirm_account_change", False)
     if changes.get("recipient_company_id"):
         recipient_access.ensure_company_selectable(
             session, current_user, changes["recipient_company_id"]
         )
+    # a changed account number must be confirmed by the user first (fraud guard)
+    account_integrity.require_confirmation(
+        session, invoice, changes, confirmed=confirm_account
+    )
     for field, value in changes.items():
         setattr(invoice, field, value)
+    if confirm_account and any(
+        field in changes for field in account_integrity.ACCOUNT_FIELDS
+    ):
+        account_integrity.confirm(session, invoice, user=current_user)
     invoice_service.recompute_derived(invoice)
     invoice.updated_at = get_datetime_utc()
     session.add(invoice)

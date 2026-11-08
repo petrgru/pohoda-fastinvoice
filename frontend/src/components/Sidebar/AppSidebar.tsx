@@ -1,4 +1,4 @@
-import { Building2, FileText, Home, Inbox, Users } from "lucide-react"
+import { Building2, FileText, Home, Inbox, Truck, Users } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { LanguageSwitcher } from "@/components/Common/LanguageSwitcher"
@@ -18,6 +18,7 @@ const baseIcons = {
   invoices: FileText,
   queue: Inbox,
   companies: Building2,
+  suppliers: Truck,
 }
 
 export function AppSidebar() {
@@ -32,6 +33,11 @@ export function AppSidebar() {
       icon: baseIcons.companies,
       title: t("nav.companies"),
       path: "/companies",
+    },
+    {
+      icon: baseIcons.suppliers,
+      title: t("nav.suppliers"),
+      path: "/suppliers",
     },
   ]
 

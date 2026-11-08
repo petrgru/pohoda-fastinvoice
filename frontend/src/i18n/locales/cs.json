@@ -17,6 +17,7 @@
     "invoices": "Faktury",
     "queue": "Fronta úloh",
     "companies": "Naše firmy",
+    "suppliers": "Dodavatelé",
     "admin": "Admin",
     "language": "Jazyk"
   },
@@ -108,7 +109,16 @@
     "rateUnusual": "Sazba {{rate}} není pro {{country}} obvyklá",
     "recipientTitle": "Rozpoznaný příjemce",
     "recipientText": "Na dokladu je jako příjemce uvedeno: {{name}}. Vyberte svou firmu níže.",
-    "recipientFallback": "Příjemce z dokladu"
+    "recipientFallback": "Příjemce z dokladu",
+    "accountChangedDocTitle": "Účet nesouhlasí s dokladem",
+    "accountChangedDocText": "Na dokladu je uvedeno {{document}}. Zkontrolujte, že číslo účtu odpovídá bance dodavatele.",
+    "accountChangedSupplierTitle": "Účet se liší od ostatních faktur",
+    "accountChangedSupplierText": "Dodavatel má potvrzený účet {{confirmed}}. Pozor, podstrčení nového účtu je častý podvod.",
+    "accountDiffTitle": "Opravdu změnit bankovní účet?",
+    "accountDiffText": "Doklad obsahuje {{document}}{{supplierPart}}. Změna se uloží až po vašem potvrzení.",
+    "accountDiffSupplierPart": ", doposud potvrzený účet dodavatele je {{confirmed}}",
+    "accountDiffKeep": "Zrušit změnu",
+    "accountDiffConfirm": "Ano, účet je správně"
   },
   "companies": {
     "title": "Naše firmy",
@@ -135,6 +145,31 @@
     "deleteCascadeHint": "Vývojový režim: budou smazány i všechny přiřazené faktury včetně souborů.",
     "emptyTitle": "Zatím žádná firma",
     "emptyHint": "Přidejte svou první firmu – nahrané doklady se jí pak přiřadí automaticky."
+  },
+  "suppliers": {
+    "title": "Dodavatelé",
+    "subtitle": "Firem, které vám vystavily faktury. Účty potvrzené u faktur slouží jako ochrana proti změně účtu.",
+    "searchPlaceholder": "Hledat podle názvu nebo IČO…",
+    "colName": "Název",
+    "colIco": "IČO",
+    "colAccounts": "Účty",
+    "colInvoices": "Faktur",
+    "colLastInvoice": "Poslední faktura",
+    "manage": "Spravovat",
+    "manageTitle": "Správa dodavatele",
+    "name": "Název",
+    "dic": "DIČ",
+    "accounts": "Bankovní účty",
+    "accountsHint": "Zaškrtněte účty, které jste ověřili – změna proti nim se bude znovu ptát na potvrzení.",
+    "accountPlaceholder": "123456789/0100",
+    "confirmed": "Ověřeno",
+    "addAccount": "Přidat účet",
+    "removeAccount": "Odebrat účet",
+    "invoices": "Faktury od dodavatele",
+    "docNumber": "Doklad",
+    "total": "Celkem",
+    "createdAt": "Import",
+    "saved": "Dodavatel uložen"
   },
   "companyFields": {
     "name": "Název",
@@ -206,7 +241,9 @@
     "member_exists": "Uživatel je již členem firmy",
     "member_not_found": "Člen nenalezen",
     "api_key_not_found": "Klíč nenalezen",
-    "last_company_admin": "Firma musí zůstat alespoň jedním správcem"
+    "last_company_admin": "Firma musí zůstat alespoň jedním správcem",
+    "account_changed_confirm": "Bankovní účet se liší od dokladu nebo historie dodavatele – potvrďte změnu",
+    "supplier_not_found": "Dodavatel nenalezen"
   },
   "login": {
     "title": "Přihlášení",

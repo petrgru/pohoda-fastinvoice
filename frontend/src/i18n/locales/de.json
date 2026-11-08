@@ -17,6 +17,7 @@
     "invoices": "Rechnungen",
     "queue": "Aufgabenliste",
     "companies": "Unsere Firmen",
+    "suppliers": "Lieferanten",
     "admin": "Admin",
     "language": "Sprache"
   },
@@ -108,7 +109,16 @@
     "rateUnusual": "Satz {{rate}} ist für {{country}} ungewöhnlich",
     "recipientTitle": "Erkannter Empfänger",
     "recipientText": "Als Empfänger im Beleg ist {{name}} angegeben. Wählen Sie unten Ihre Firma.",
-    "recipientFallback": "Empfänger aus dem Beleg"
+    "recipientFallback": "Empfänger aus dem Beleg",
+    "accountChangedDocTitle": "Konto weicht vom Beleg ab",
+    "accountChangedDocText": "Der Beleg enthält {{document}}. Prüfen Sie, ob die Kontonummer zur Bank des Lieferanten passt.",
+    "accountChangedSupplierTitle": "Konto weicht von anderen Rechnungen ab",
+    "accountChangedSupplierText": "Der Lieferant hat ein bestätigtes Konto {{confirmed}}. Ein untergeschobenes Konto ist ein häufiger Betrugsmuster.",
+    "accountDiffTitle": "Bankkonto wirklich ändern?",
+    "accountDiffText": "Der Beleg enthält {{document}}{{supplierPart}}. Geändert wird erst nach Ihrer Bestätigung.",
+    "accountDiffSupplierPart": ", das bestätigte Konto des Lieferanten ist {{confirmed}}",
+    "accountDiffKeep": "Änderung verwerfen",
+    "accountDiffConfirm": "Ja, das Konto ist richtig"
   },
   "companies": {
     "title": "Unsere Firmen",
@@ -135,6 +145,31 @@
     "deleteCascadeHint": "Entwicklungsmodus: Alle zugeordneten Rechnungen inklusive Dateien werden gelöscht.",
     "emptyTitle": "Noch keine Firma",
     "emptyHint": "Fügen Sie Ihre erste Firma hinzu – hochgeladene Belege werden ihr dann automatisch zugeordnet."
+  },
+  "suppliers": {
+    "title": "Lieferanten",
+    "subtitle": "Unternehmen, die Ihnen Rechnungen gestellt haben. Bestätigte Konten dienen als Schutz vor Kontenänderung.",
+    "searchPlaceholder": "Nach Name oder ID suchen…",
+    "colName": "Name",
+    "colIco": "ID",
+    "colAccounts": "Konten",
+    "colInvoices": "Rechnungen",
+    "colLastInvoice": "Letzte Rechnung",
+    "manage": "Verwalten",
+    "manageTitle": "Lieferant verwalten",
+    "name": "Name",
+    "dic": "USt-IdNr.",
+    "accounts": "Bankkonten",
+    "accountsHint": "Markieren Sie überprüfte Konten – Abweichungen davon erfordern erneut eine Bestätigung.",
+    "accountPlaceholder": "123456789/0100",
+    "confirmed": "Überprüft",
+    "addAccount": "Konto hinzufügen",
+    "removeAccount": "Konto entfernen",
+    "invoices": "Rechnungen des Lieferanten",
+    "docNumber": "Beleg",
+    "total": "Gesamt",
+    "createdAt": "Import",
+    "saved": "Lieferant gespeichert"
   },
   "companyFields": {
     "name": "Name",
@@ -206,7 +241,9 @@
     "member_exists": "Der Benutzer ist bereits Mitglied der Firma",
     "member_not_found": "Mitglied nicht gefunden",
     "api_key_not_found": "Schlüssel nicht gefunden",
-    "last_company_admin": "Die Firma muss mindestens einen Administrator behalten"
+    "last_company_admin": "Die Firma muss mindestens einen Administrator behalten",
+    "account_changed_confirm": "Das Bankkonto weicht vom Dokument oder der Lieferantenhistorie ab – Änderung bestätigen",
+    "supplier_not_found": "Lieferant nicht gefunden"
   },
   "login": {
     "title": "Anmeldung",

@@ -131,6 +131,7 @@ export const getInvoice = async (
   id: string
   state: string
   recipient_company_id: string | null
+  supplier_bank_account: string | null
 }> => {
   const response = await fetch(`${apiBase}/api/v1/invoices/${invoiceId}`, {
     headers: await authHeaders(),
@@ -145,15 +146,17 @@ export const getInvoice = async (
  *  With a real LLM backend parsing can take tens of seconds. */
 export const waitForParsed = async (
   invoiceId: string,
+  timeoutMs = 60_000,
 ): Promise<{ state: string; recipient_company_id: string | null }> => {
-  for (let attempt = 0; attempt < 120; attempt++) {
+  const attempts = Math.ceil(timeoutMs / 500)
+  for (let attempt = 0; attempt < attempts; attempt++) {
     const invoice = await getInvoice(invoiceId)
     if (invoice.state !== "uploaded" && invoice.state !== "parsing") {
       return invoice
     }
     await new Promise((resolve) => setTimeout(resolve, 500))
   }
-  throw new Error(`Invoice ${invoiceId} still parsing after 60s`)
+  throw new Error(`Invoice ${invoiceId} still parsing after ${timeoutMs}ms`)
 }
 
 export const markInvoiceExported = async (invoiceId: string): Promise<void> => {
@@ -231,4 +234,26 @@ export const deleteCompaniesByName = async (
       })
     }
   }
+}
+
+/** Suppliers seen on invoices (registry is deduplicated by IČO). */
+export const getSuppliers = async (
+  q?: string,
+): Promise<
+  { id: string; name: string; ico: string | null; invoice_count: number }[]
+> => {
+  const response = await fetch(
+    `${apiBase}/api/v1/suppliers?limit=200${q ? `&q=${encodeURIComponent(q)}` : ""}`,
+    { headers: await authHeaders() },
+  )
+  if (!response.ok) {
+    throw new Error(`Supplier list failed: ${await response.text()}`)
+  }
+  const body = (await response.json()) as { data: unknown[] }
+  return body.data as {
+    id: string
+    name: string
+    ico: string | null
+    invoice_count: number
+  }[]
 }
