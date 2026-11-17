@@ -197,6 +197,8 @@ class InvoiceState(str, enum.Enum):  # noqa: UP042 - str mixin needed for DB val
     Transitions (enforced in crud.invoices):
       UPLOADED -> PARSING -> NEEDS_REVIEW -> READY_FOR_EXPORT -> EXPORTED
                                              \\-> EXPORT_FAILED -> NEEDS_REVIEW
+      READY_FOR_EXPORT/EXPORT_FAILED -> PROCESSING -> EXPORTED | EXPORT_FAILED
+      (PROCESSING = claimed by an accounting connector, import in flight)
     A record may be deleted in any state except EXPORTED.
     """
 
@@ -204,6 +206,7 @@ class InvoiceState(str, enum.Enum):  # noqa: UP042 - str mixin needed for DB val
     PARSING = "parsing"
     NEEDS_REVIEW = "needs_review"
     READY_FOR_EXPORT = "ready_for_export"
+    PROCESSING = "processing"
     EXPORTED = "exported"
     EXPORT_FAILED = "export_failed"
 
@@ -213,6 +216,7 @@ DELETABLE_STATES = {
     InvoiceState.PARSING,
     InvoiceState.NEEDS_REVIEW,
     InvoiceState.READY_FOR_EXPORT,
+    InvoiceState.PROCESSING,
     InvoiceState.EXPORT_FAILED,
 }
 
@@ -345,6 +349,8 @@ class Supplier(SQLModel, table=True):
     bank_accounts: list[dict[str, Any]] | None = Field(
         default=None, sa_column=Column(JSON)
     )  # serialized SupplierKnownAccount models (JSON column)
+    # internal id of the supplier in the accounting system (connector import)
+    erp_remote_id: str | None = Field(default=None, max_length=64)
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
     updated_at: datetime | None = Field(default_factory=get_datetime_utc)
 
@@ -355,6 +361,7 @@ class SupplierPublic(SQLModel):
     ico: str | None = None
     dic: str | None = None
     bank_accounts: list[SupplierKnownAccount] = []
+    erp_remote_id: str | None = None
     invoice_count: int = 0
     last_invoice_at: datetime | None = None
 
@@ -522,6 +529,24 @@ class RecipientApiKey(SQLModel, table=True):
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
     last_used_at: datetime | None = None
     revoked_at: datetime | None = None
+
+
+class ErpConnection(SQLModel, table=True):
+    """Last heartbeat of the accounting connector service of one company."""
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    recipient_company_id: uuid.UUID = Field(
+        foreign_key="recipientcompany.id",
+        unique=True,
+        ondelete="CASCADE",
+        index=True,
+    )
+    system: str = Field(default="pohoda", max_length=32)
+    version: str | None = Field(default=None, max_length=32)
+    mode: str | None = Field(default=None, max_length=32)  # mserver|exe
+    queue_size: int | None = None
+    last_error: str | None = Field(default=None, max_length=255)
+    last_seen_at: datetime | None = Field(default_factory=get_datetime_utc)
 
 
 class RecipientApiKeyCreate(SQLModel):
@@ -798,6 +823,13 @@ class Invoice(SQLModel, table=True):
     # document number assigned by the external accounting system on import
     external_number: str | None = Field(default=None, max_length=64)
     export_batch_ref: str | None = Field(default=None, max_length=64, index=True)
+    # accounting connector sync: internal id in the ERP (for later updates),
+    # the last error the connector reported, automatic attempt counter and
+    # the moment a connector claimed the record (watchdog releases stale ones)
+    erp_remote_id: str | None = Field(default=None, max_length=64)
+    erp_error_message: str | None = None
+    export_retry_count: int = Field(default=0)
+    export_claimed_at: datetime | None = None
 
     # Full-text search vector (maintained in crud.invoices)
     search_vector: str | None = Field(
@@ -880,6 +912,11 @@ class InvoicePublic(SQLModel):
     exported_at: datetime | None = None
     external_number: str | None = None
     account_confirmed_at: datetime | None = None
+    # accounting connector sync hints for the UI (error badge, re-queue)
+    erp_remote_id: str | None = None
+    erp_error_message: str | None = None
+    export_retry_count: int = 0
+    export_claimed_at: datetime | None = None
     # Fraud-detection hints: account vs. the parsed document / supplier history
     account_matches_document: bool | None = None
     account_matches_supplier: bool | None = None
@@ -955,6 +992,7 @@ class InvoiceStateCounts(SQLModel):
     parsing: int = 0
     needs_review: int = 0
     ready_for_export: int = 0
+    processing: int = 0
     exported: int = 0
     export_failed: int = 0
 
@@ -990,6 +1028,96 @@ class ExternalStatusUpdate(SQLModel):
     state: Literal["exported", "export_failed", "ready_for_export"]
     document_number: str | None = Field(default=None, max_length=64)
     note: str | None = Field(default=None, max_length=255)
+
+
+class ErpSupplierPayload(SQLModel):
+    """One supplier as needed to create/update the counterpart in the ERP."""
+
+    id: uuid.UUID | None = None
+    erp_remote_id: str | None = None
+    name: str | None = None
+    ico: str | None = None
+    dic: str | None = None
+    email: str | None = None
+    bank_accounts: list[SupplierBankAccount] = []
+
+
+class ErpInvoicePayload(SQLModel):
+    """Everything the connector needs to build the ERP document without
+    computing anything itself – amounts and dates come pre-derived."""
+
+    id: uuid.UUID
+    invoice_number: str | None = None
+    variable_symbol: str | None = None
+    document_type: str | None = None
+    issue_date: date | None = None
+    delivery_date: date | None = None
+    due_date: date | None = None
+    kh_date: date | None = None
+    payment_method: str | None = None
+    currency: str | None = None
+    total_price: Decimal | None = None
+    total_vat: Decimal | None = None
+    total_without_vat: Decimal | None = None
+    vat_items: list[dict[str, Any]] = []
+    supplier: ErpSupplierPayload
+    erp_remote_id: str | None = None
+    external_number: str | None = None
+    retry_count: int = 0
+    attachment_url: str | None = None
+
+
+class ErpBatchOut(SQLModel):
+    """Claimed batch; process ``suppliers`` before ``invoices``."""
+
+    company_name: str
+    company_ico: str
+    claimed_at: datetime
+    suppliers: list[ErpSupplierPayload] = []
+    invoices: list[ErpInvoicePayload] = []
+
+
+class ErpSyncItem(SQLModel):
+    """Connector's verdict on one record; ``retry_later`` costs no attempt."""
+
+    entity_type: Literal["invoice", "supplier"]
+    local_id: uuid.UUID
+    status: Literal["synced", "error", "retry_later"]
+    remote_id: str | None = Field(default=None, max_length=64)
+    remote_number: str | None = Field(default=None, max_length=64)
+    error_message: str | None = Field(default=None, max_length=500)
+
+
+class ErpSyncResultsIn(SQLModel):
+    results: list[ErpSyncItem] = Field(min_length=1)
+
+
+class ErpSyncOutcome(SQLModel):
+    local_id: uuid.UUID
+    entity_type: str
+    ok: bool
+    detail: str | None = None
+
+
+class ErpSyncResultsOut(SQLModel):
+    applied: list[ErpSyncOutcome]
+
+
+class ErpHeartbeatIn(SQLModel):
+    system: str = Field(default="pohoda", max_length=32)
+    version: str | None = Field(default=None, max_length=32)
+    mode: str | None = Field(default=None, max_length=32)  # mserver|exe
+    queue_size: int | None = None
+    last_error: str | None = Field(default=None, max_length=255)
+
+
+class ErpConnectionPublic(SQLModel):
+    system: str
+    version: str | None = None
+    mode: str | None = None
+    queue_size: int | None = None
+    last_error: str | None = None
+    last_seen_at: datetime | None = None
 
 
 class InvoiceUpdate(SQLModel):

@@ -32,6 +32,7 @@ const STATE_FILTERS = [
   "parsing",
   "needs_review",
   "ready_for_export",
+  "processing",
   "exported",
   "export_failed",
 ] as const

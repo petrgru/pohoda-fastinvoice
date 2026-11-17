@@ -32,7 +32,9 @@
     "needs_review": "Ke kontrole",
     "ready_for_export": "K exportu",
     "exported": "Exportováno",
-    "export_failed": "Chyba exportu"
+    "export_failed": "Chyba exportu",
+    "processing": "Odesílání do systému",
+    "exportFailedDetail": "Chyba importu: {{detail}}"
   },
   "dashboard": {
     "subtitle": "Statistiky a hledání v dokladech"
@@ -160,7 +162,9 @@
     "recipientSwitch": "Přepnout na tuto firmu",
     "externalNumber": "Číslo dokladu v accounting systému",
     "accountsPanel": "Bankovní účty",
-    "accountsNone": "žádný účet"
+    "accountsNone": "žádný účet",
+    "requeueMenuItem": "Znovu zařadit k importu",
+    "requeued": "Doklad byl znovu zařazen k importu"
   },
   "companies": {
     "title": "Naše firmy",
@@ -263,7 +267,8 @@
       "export_failed_bare": "Předchozí export selhal",
       "missingIssueDate": "Chybí datum vystavení",
       "missingDueDate": "Chybí datum splatnosti",
-      "missingTaxDate": "Chybí datum zdanitelného plnění"
+      "missingTaxDate": "Chybí datum zdanitelného plnění",
+      "export_in_progress": "Doklad právě odesílá účetní konektor"
     },
     "colAction": "Akce"
   },
@@ -293,7 +298,8 @@
     "account_changed_confirm": "Bankovní účet se liší od dokladu nebo historie dodavatele – potvrďte změnu",
     "supplier_not_found": "Dodavatel nenalezen",
     "dateRequired": "Doklad musí mít datum vystavení, splatnosti i zdanitelného plnění (chybí: {{detail}})",
-    "approvalMissingDates": "Doklad nelze schválit bez data vystavení, splatnosti a zdanitelného plnění (chybí: {{detail}})"
+    "approvalMissingDates": "Doklad nelze schválit bez data vystavení, splatnosti a zdanitelného plnění (chybí: {{detail}})",
+    "approval_in_progress": "Doklad právě odesílá do účetního systému – potvrzení zrušte nebo počkejte na dokončení"
   },
   "login": {
     "title": "Přihlášení",
@@ -351,7 +357,13 @@
     "keyOnceHint": "Celý klíč uvidíte právě teď – uložte si ho, dál se už nezobrazí.",
     "rotateKey": "Vygenerovat nový klíč",
     "rotateConfirm": "Současný klíč přestane okamžitě fungovat. Nahradit jedním novým?",
-    "keyDefaultLabel": "API klíč"
+    "keyDefaultLabel": "API klíč",
+    "connectorTitle": "Účetní systém (konektor)",
+    "connectorNever": "Konektor se zatím neozval",
+    "connectorOnline": "Připojen",
+    "connectorOffline": "Nepřipojen",
+    "connectorQueue": "fronta {{count}}",
+    "connectorLastSeen": "Naposledy naživu {{time}}"
   },
   "companySwitcher": {
     "label": "Přepínač firmy",

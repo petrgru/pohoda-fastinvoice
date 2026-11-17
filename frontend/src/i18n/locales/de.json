@@ -32,7 +32,9 @@
     "needs_review": "Zur Prüfung",
     "ready_for_export": "Zum Export bereit",
     "exported": "Im System gespeichert",
-    "export_failed": "Exportfehler"
+    "export_failed": "Exportfehler",
+    "processing": "Wird ins System gesendet",
+    "exportFailedDetail": "Importfehler: {{detail}}"
   },
   "dashboard": {
     "subtitle": "Statistiken und Dokumentensuche"
@@ -160,7 +162,9 @@
     "recipientSwitch": "Zu dieser Firma wechseln",
     "externalNumber": "Belegnummer im Buchhaltungssystem",
     "accountsPanel": "Bankverbindungen",
-    "accountsNone": "kein Konto"
+    "accountsNone": "kein Konto",
+    "requeueMenuItem": "Erneut zum Import einreihen",
+    "requeued": "Der Beleg wurde erneut zum Import eingereiht"
   },
   "companies": {
     "title": "Unsere Firmen",
@@ -263,7 +267,8 @@
       "export_failed_bare": "Vorheriger Export fehlgeschlagen",
       "missingIssueDate": "Ausstellungsdatum fehlt",
       "missingDueDate": "Fälligkeitsdatum fehlt",
-      "missingTaxDate": "Datum der Steuerleistung fehlt"
+      "missingTaxDate": "Datum der Steuerleistung fehlt",
+      "export_in_progress": "Der Buchungs-Konnektor sendet gerade den Beleg"
     },
     "colAction": "Aktionen"
   },
@@ -293,7 +298,8 @@
     "account_changed_confirm": "Das Bankkonto weicht vom Dokument oder der Lieferantenhistorie ab – Änderung bestätigen",
     "supplier_not_found": "Lieferant nicht gefunden",
     "dateRequired": "Das Dokument braucht Ausstellungs-, Fälligkeits- und Leistungsdatum (fehlt: {{detail}})",
-    "approvalMissingDates": "Ohne Ausstellungs-, Fälligkeits- und Leistungsdatum kann der Beleg nicht genehmigt werden (fehlt: {{detail}})"
+    "approvalMissingDates": "Ohne Ausstellungs-, Fälligkeits- und Leistungsdatum kann der Beleg nicht genehmigt werden (fehlt: {{detail}})",
+    "approval_in_progress": "Der Beleg wird gerade an das Buchhaltungssystem gesendet – Bestätigung widerrufen oder auf Abschluss warten"
   },
   "login": {
     "title": "Anmeldung",
@@ -351,7 +357,13 @@
     "keyOnceHint": "Der vollständige Schlüssel wird nur jetzt angezeigt – jetzt kopieren.",
     "rotateKey": "Neuen Schlüssel generieren",
     "rotateConfirm": "Der aktuelle Schlüssel wird sofort ungültig. Durch einen neuen ersetzen?",
-    "keyDefaultLabel": "API-Schlüssel"
+    "keyDefaultLabel": "API-Schlüssel",
+    "connectorTitle": "Buchhaltungssystem (Konnektor)",
+    "connectorNever": "Der Konnektor hat sich noch nicht gemeldet",
+    "connectorOnline": "Verbunden",
+    "connectorOffline": "Getrennt",
+    "connectorQueue": "Warteschlange {{count}}",
+    "connectorLastSeen": "Zuletzt gesehen {{time}}"
   },
   "companySwitcher": {
     "label": "Firmenwechsler",

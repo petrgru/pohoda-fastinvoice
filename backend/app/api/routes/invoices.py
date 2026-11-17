@@ -36,6 +36,7 @@ QUEUE_STATES = [
     InvoiceState.UPLOADED.value,
     InvoiceState.PARSING.value,
     InvoiceState.NEEDS_REVIEW.value,
+    InvoiceState.PROCESSING.value,
     InvoiceState.EXPORT_FAILED.value,
 ]
 
@@ -348,6 +349,10 @@ def update_invoice(
     invoice = _get_invoice(session, invoice_id, user=current_user)
     _assert_mutable(invoice)
     _assert_parsed(invoice)
+    # an edit pulls the document back from an in-flight connector batch
+    invoice_service.release_export_claim(
+        session, invoice, reason="Upraveno uživatelem během odesílání"
+    )
     changes = invoice_in.model_dump(exclude_unset=True)
     confirm_account = changes.pop("confirm_account_change", False)
     if changes.get("recipient_company_id"):
@@ -397,6 +402,11 @@ def assign_company(
     invoice = _get_invoice(session, invoice_id, user=current_user)
     _assert_mutable(invoice)
     _assert_parsed(invoice)
+    if InvoiceState(invoice.state) is InvoiceState.PROCESSING:
+        raise HTTPException(
+            status_code=409,
+            detail="Faktura právě odesílá do účetního systému (změnu firmy provede až po dokončení)",
+        )
     recipient_access.ensure_company_selectable(
         session, current_user, company_in.recipient_company_id
     )
@@ -478,6 +488,25 @@ def unapprove_invoice(
         raise HTTPException(status_code=403, detail=str(exc))
     session.commit()
     session.refresh(invoice)
+    return invoice_service.to_public(session, invoice)
+
+
+@router.post("/{invoice_id}/requeue-export", response_model=InvoicePublic)
+def requeue_export_invoice(
+    *, session: SessionDep, current_user: CurrentUser, invoice_id: UUID
+) -> InvoicePublic:
+    """User confirms another connector attempt (resets the retry counter)."""
+    invoice = _get_invoice(session, invoice_id, user=current_user)
+    _assert_mutable(invoice)
+    try:
+        invoice_service.requeue_export(session, invoice, user=current_user)
+    except invoice_service.InvoiceLockedError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except invoice_service.InvalidTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    session.commit()
+    session.refresh(invoice)
+    invoice_service.update_search_vector(session, invoice)
     return invoice_service.to_public(session, invoice)
 
 

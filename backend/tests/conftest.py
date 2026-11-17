@@ -66,8 +66,10 @@ from app.core.db import engine, init_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
     AuditLog,
+    ErpConnection,
     ExportBatch,
     Invoice,
+    RecipientApiKey,
     RecipientCompany,
     User,
 )
@@ -89,7 +91,15 @@ def db() -> Generator[Session]:
         init_db(session)
         yield session
         session.rollback()
-        for model in (AuditLog, Invoice, RecipientCompany, ExportBatch, User):
+        for model in (
+            AuditLog,
+            Invoice,
+            ErpConnection,
+            RecipientApiKey,
+            RecipientCompany,
+            ExportBatch,
+            User,
+        ):
             session.execute(delete(model))
         session.commit()
 

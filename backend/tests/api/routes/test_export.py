@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 
 from app.core.config import settings
 from app.models import InvoiceState
@@ -53,7 +53,31 @@ def parsing_ok(monkeypatch):
     return FakeParser(monkeypatch, str(random.randrange(10000000, 99999999)))
 
 
-def test_export_disabled_without_key(client: TestClient, monkeypatch):
+@pytest.fixture
+def no_company_keys(db: Session):
+    """Export is also enabled by any active company key.
+
+    The suite shares one database for the whole session, so keys created by
+    other modules are still here; hide them for one request and restore them
+    afterwards so later tests keep their working keys.
+    """
+    from app.models import RecipientApiKey, get_datetime_utc
+
+    active = db.exec(
+        select(RecipientApiKey).where(col(RecipientApiKey.revoked_at).is_(None))
+    ).all()
+    for key in active:
+        key.revoked_at = get_datetime_utc()
+        db.add(key)
+    db.commit()
+    yield
+    for key in active:
+        key.revoked_at = None
+        db.add(key)
+    db.commit()
+
+
+def test_export_disabled_without_key(client: TestClient, monkeypatch, no_company_keys):
     monkeypatch.setattr(settings, "EXPORT_API_KEY", None)
     response = client.get(f"{EXPORT}/queue")
     assert response.status_code == 503

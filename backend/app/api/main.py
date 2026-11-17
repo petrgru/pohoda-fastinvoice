@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     companies,
     data,
+    erp_connector,
     export,
     external,
     invoices,
@@ -23,6 +24,7 @@ api_router.include_router(invoices.router)
 api_router.include_router(export.router)
 api_router.include_router(external.router)
 api_router.include_router(data.router)
+api_router.include_router(erp_connector.router)
 api_router.include_router(suppliers.router)
 
 

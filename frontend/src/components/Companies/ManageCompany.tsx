@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 
 import {
   CompaniesService,
+  ErpConnectorService,
   type MembershipPublic,
   type RecipientApiKeyPublic,
   type RecipientCompanyPublic,
@@ -30,6 +31,74 @@ import { handleError } from "@/utils"
 
 function formatDate(value: string | null | undefined) {
   return value ? new Date(value).toLocaleDateString() : "—"
+}
+
+/** Health dot of the accounting connector bridge of one company. */
+function ConnectorStatus({
+  connection,
+  "data-testid": testId,
+}: {
+  connection?: {
+    system: string
+    version?: string | null
+    mode?: string | null
+    queue_size?: number | null
+    last_error?: string | null
+    last_seen_at?: string | null
+  } | null
+  "data-testid"?: string
+}) {
+  const { t } = useTranslation()
+  if (!connection) {
+    return (
+      <p className="text-xs text-muted-foreground" data-testid={testId}>
+        {t("manage.connectorNever")}
+      </p>
+    )
+  }
+  const minutes =
+    connection.last_seen_at == null
+      ? null
+      : Math.floor(
+          (Date.now() - new Date(connection.last_seen_at).getTime()) / 60_000,
+        )
+  const online = minutes !== null && minutes < 2
+  const label = online
+    ? t("manage.connectorOnline")
+    : t("manage.connectorOffline")
+  const dot = online
+    ? "bg-green-500"
+    : connection.last_error
+      ? "bg-amber-500"
+      : "bg-muted-foreground/40"
+  return (
+    <div className="flex flex-col gap-0.5" data-testid={testId}>
+      <span className="flex items-center gap-2 text-sm">
+        <span className={`size-2 shrink-0 rounded-full ${dot}`} aria-hidden />
+        {label}
+        <span className="text-xs text-muted-foreground">
+          {connection.system}
+          {connection.version ? ` ${connection.version}` : ""}
+          {connection.mode ? ` · ${connection.mode}` : ""}
+          {connection.queue_size != null
+            ? ` · ${t("manage.connectorQueue", { count: connection.queue_size })}`
+            : ""}
+        </span>
+      </span>
+      {connection.last_error && (
+        <span className="truncate text-xs text-red-600 dark:text-red-400">
+          {connection.last_error}
+        </span>
+      )}
+      {connection.last_seen_at && (
+        <span className="text-xs text-muted-foreground">
+          {t("manage.connectorLastSeen", {
+            time: new Date(connection.last_seen_at).toLocaleString(),
+          })}
+        </span>
+      )}
+    </div>
+  )
 }
 
 function MemberRow({
@@ -212,6 +281,19 @@ export function ManageCompany({
     enabled: open,
   })
 
+  const connector = useQuery({
+    queryKey: ["erp-connection", company.id],
+    queryFn: async () =>
+      (
+        await ErpConnectorService.connectorConnectionStatus({
+          query: { company_id: company.id },
+        })
+      ).data,
+    enabled: open,
+    // the health dot should follow the bridge without reopening the dialog
+    refetchInterval: open ? 15_000 : false,
+  })
+
   const addMember = useMutation({
     mutationFn: () =>
       CompaniesService.addMember({
@@ -278,7 +360,17 @@ export function ManageCompany({
           </DialogTitle>
         </DialogHeader>
 
-        <section className="flex flex-col gap-2">
+        <section className="flex flex-col gap-1">
+          <h3 className="text-sm font-semibold">
+            {t("manage.connectorTitle")}
+          </h3>
+          <ConnectorStatus
+            connection={connector.data}
+            data-testid="manage-connector-status"
+          />
+        </section>
+
+        <section className="flex flex-col gap-2 border-t pt-3">
           <h3 className="text-sm font-semibold">{t("manage.members")}</h3>
           {(members.data ?? []).map((member) => (
             <MemberRow

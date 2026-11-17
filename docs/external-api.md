@@ -4,6 +4,8 @@
 read-only [Data API](data-api.md) a přes tento router vrací, co se v jejím
 systému stalo. Autentizace je stejný firemní `X-API-Key` jako u ostatních
 strojových API – klíč vidí jen faktury své firmy (cizí jsou `404`).
+Pro dávkovou synchronizaci bridge službou (claim dávek, heartbeat) viz
+[ERP Connector API](erp-connector.md).
 
 - Base URL: `https://<host>/api/v1/external`
 - Špatný/zrušený (smazaný) klíč → `401`, neaktivní firma → `403`.

@@ -464,7 +464,10 @@ function InvoiceDetail() {
               · {invoice.original_filename}
             </p>
           </div>
-          <StateBadge state={invoice.state} />
+          <StateBadge
+            state={invoice.state}
+            errorMessage={invoice.erp_error_message}
+          />
         </div>
         <InvoiceActionsMenu
           invoice={invoice}

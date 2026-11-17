@@ -212,6 +212,284 @@ export type DataInvoicesPublic = {
 };
 
 /**
+ * ErpBatchOut
+ *
+ * Claimed batch; process ``suppliers`` before ``invoices``.
+ */
+export type ErpBatchOut = {
+    /**
+     * Company Name
+     */
+    company_name: string;
+    /**
+     * Company Ico
+     */
+    company_ico: string;
+    /**
+     * Claimed At
+     */
+    claimed_at: string;
+    /**
+     * Suppliers
+     */
+    suppliers?: Array<ErpSupplierPayload>;
+    /**
+     * Invoices
+     */
+    invoices?: Array<ErpInvoicePayload>;
+};
+
+/**
+ * ErpConnectionPublic
+ */
+export type ErpConnectionPublic = {
+    /**
+     * System
+     */
+    system: string;
+    /**
+     * Version
+     */
+    version?: string | null;
+    /**
+     * Mode
+     */
+    mode?: string | null;
+    /**
+     * Queue Size
+     */
+    queue_size?: number | null;
+    /**
+     * Last Error
+     */
+    last_error?: string | null;
+    /**
+     * Last Seen At
+     */
+    last_seen_at?: string | null;
+};
+
+/**
+ * ErpHeartbeatIn
+ */
+export type ErpHeartbeatIn = {
+    /**
+     * System
+     */
+    system?: string;
+    /**
+     * Version
+     */
+    version?: string | null;
+    /**
+     * Mode
+     */
+    mode?: string | null;
+    /**
+     * Queue Size
+     */
+    queue_size?: number | null;
+    /**
+     * Last Error
+     */
+    last_error?: string | null;
+};
+
+/**
+ * ErpInvoicePayload
+ *
+ * Everything the connector needs to build the ERP document without
+ * computing anything itself – amounts and dates come pre-derived.
+ */
+export type ErpInvoicePayload = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Invoice Number
+     */
+    invoice_number?: string | null;
+    /**
+     * Variable Symbol
+     */
+    variable_symbol?: string | null;
+    /**
+     * Document Type
+     */
+    document_type?: string | null;
+    /**
+     * Issue Date
+     */
+    issue_date?: string | null;
+    /**
+     * Delivery Date
+     */
+    delivery_date?: string | null;
+    /**
+     * Due Date
+     */
+    due_date?: string | null;
+    /**
+     * Kh Date
+     */
+    kh_date?: string | null;
+    /**
+     * Payment Method
+     */
+    payment_method?: string | null;
+    /**
+     * Currency
+     */
+    currency?: string | null;
+    /**
+     * Total Price
+     */
+    total_price?: string | null;
+    /**
+     * Total Vat
+     */
+    total_vat?: string | null;
+    /**
+     * Total Without Vat
+     */
+    total_without_vat?: string | null;
+    /**
+     * Vat Items
+     */
+    vat_items?: Array<{
+        [key: string]: unknown;
+    }>;
+    supplier: ErpSupplierPayload;
+    /**
+     * Erp Remote Id
+     */
+    erp_remote_id?: string | null;
+    /**
+     * External Number
+     */
+    external_number?: string | null;
+    /**
+     * Retry Count
+     */
+    retry_count?: number;
+    /**
+     * Attachment Url
+     */
+    attachment_url?: string | null;
+};
+
+/**
+ * ErpSupplierPayload
+ *
+ * One supplier as needed to create/update the counterpart in the ERP.
+ */
+export type ErpSupplierPayload = {
+    /**
+     * Id
+     */
+    id?: string | null;
+    /**
+     * Erp Remote Id
+     */
+    erp_remote_id?: string | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Ico
+     */
+    ico?: string | null;
+    /**
+     * Dic
+     */
+    dic?: string | null;
+    /**
+     * Email
+     */
+    email?: string | null;
+    /**
+     * Bank Accounts
+     */
+    bank_accounts?: Array<SupplierBankAccount>;
+};
+
+/**
+ * ErpSyncItem
+ *
+ * Connector's verdict on one record; ``retry_later`` costs no attempt.
+ */
+export type ErpSyncItem = {
+    /**
+     * Entity Type
+     */
+    entity_type: 'invoice' | 'supplier';
+    /**
+     * Local Id
+     */
+    local_id: string;
+    /**
+     * Status
+     */
+    status: 'synced' | 'error' | 'retry_later';
+    /**
+     * Remote Id
+     */
+    remote_id?: string | null;
+    /**
+     * Remote Number
+     */
+    remote_number?: string | null;
+    /**
+     * Error Message
+     */
+    error_message?: string | null;
+};
+
+/**
+ * ErpSyncOutcome
+ */
+export type ErpSyncOutcome = {
+    /**
+     * Local Id
+     */
+    local_id: string;
+    /**
+     * Entity Type
+     */
+    entity_type: string;
+    /**
+     * Ok
+     */
+    ok: boolean;
+    /**
+     * Detail
+     */
+    detail?: string | null;
+};
+
+/**
+ * ErpSyncResultsIn
+ */
+export type ErpSyncResultsIn = {
+    /**
+     * Results
+     */
+    results: Array<ErpSyncItem>;
+};
+
+/**
+ * ErpSyncResultsOut
+ */
+export type ErpSyncResultsOut = {
+    /**
+     * Applied
+     */
+    applied: Array<ErpSyncOutcome>;
+};
+
+/**
  * ExportQueueItem
  */
 export type ExportQueueItem = {
@@ -565,6 +843,22 @@ export type InvoicePublic = {
      */
     account_confirmed_at?: string | null;
     /**
+     * Erp Remote Id
+     */
+    erp_remote_id?: string | null;
+    /**
+     * Erp Error Message
+     */
+    erp_error_message?: string | null;
+    /**
+     * Export Retry Count
+     */
+    export_retry_count?: number;
+    /**
+     * Export Claimed At
+     */
+    export_claimed_at?: string | null;
+    /**
      * Account Matches Document
      */
     account_matches_document?: boolean | null;
@@ -591,18 +885,6 @@ export type InvoicePublic = {
 };
 
 /**
- * InvoiceState
- *
- * Workflow states of an invoice.
- *
- * Transitions (enforced in crud.invoices):
- * UPLOADED -> PARSING -> NEEDS_REVIEW -> READY_FOR_EXPORT -> EXPORTED
- * \-> EXPORT_FAILED -> NEEDS_REVIEW
- * A record may be deleted in any state except EXPORTED.
- */
-export type InvoiceState = 'uploaded' | 'parsing' | 'needs_review' | 'ready_for_export' | 'exported' | 'export_failed';
-
-/**
  * InvoiceStateCounts
  *
  * Invoice counts broken down by workflow state.
@@ -624,6 +906,10 @@ export type InvoiceStateCounts = {
      * Ready For Export
      */
     ready_for_export?: number;
+    /**
+     * Processing
+     */
+    processing?: number;
     /**
      * Exported
      */
@@ -1208,6 +1494,10 @@ export type SupplierPublic = {
      * Bank Accounts
      */
     bank_accounts?: Array<SupplierKnownAccount>;
+    /**
+     * Erp Remote Id
+     */
+    erp_remote_id?: string | null;
     /**
      * Invoice Count
      */
@@ -2842,6 +3132,36 @@ export type invoicesUnapproveInvoiceResponses = {
 
 export type invoicesUnapproveInvoiceResponse = invoicesUnapproveInvoiceResponses[keyof invoicesUnapproveInvoiceResponses];
 
+export type invoicesRequeueExportInvoiceData = {
+    body?: never;
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/invoices/{invoice_id}/requeue-export';
+};
+
+export type invoicesRequeueExportInvoiceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesRequeueExportInvoiceError = invoicesRequeueExportInvoiceErrors[keyof invoicesRequeueExportInvoiceErrors];
+
+export type invoicesRequeueExportInvoiceResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvoicePublic;
+};
+
+export type invoicesRequeueExportInvoiceResponse = invoicesRequeueExportInvoiceResponses[keyof invoicesRequeueExportInvoiceResponses];
+
 export type invoicesReparseInvoiceData = {
     body?: never;
     path: {
@@ -2983,90 +3303,6 @@ export type exportSyncCompaniesResponses = {
 };
 
 export type exportSyncCompaniesResponse = exportSyncCompaniesResponses[keyof exportSyncCompaniesResponses];
-
-export type externalListInvoicesData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-    };
-    path?: never;
-    query?: {
-        /**
-         * State
-         */
-        state?: InvoiceState | null;
-        /**
-         * Limit
-         */
-        limit?: number;
-        /**
-         * Skip
-         */
-        skip?: number;
-    };
-    url: '/api/v1/external/invoices';
-};
-
-export type externalListInvoicesErrors = {
-    /**
-     * Validation Error
-     */
-    422: HTTPValidationError;
-};
-
-export type externalListInvoicesError = externalListInvoicesErrors[keyof externalListInvoicesErrors];
-
-export type externalListInvoicesResponses = {
-    /**
-     * Response External-List Invoices
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type externalListInvoicesResponse = externalListInvoicesResponses[keyof externalListInvoicesResponses];
-
-export type externalGetInvoiceData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-    };
-    path: {
-        /**
-         * Invoice Id
-         */
-        invoice_id: string;
-    };
-    query?: never;
-    url: '/api/v1/external/invoices/{invoice_id}';
-};
-
-export type externalGetInvoiceErrors = {
-    /**
-     * Validation Error
-     */
-    422: HTTPValidationError;
-};
-
-export type externalGetInvoiceError = externalGetInvoiceErrors[keyof externalGetInvoiceErrors];
-
-export type externalGetInvoiceResponses = {
-    /**
-     * Successful Response
-     */
-    200: InvoicePublic;
-};
-
-export type externalGetInvoiceResponse = externalGetInvoiceResponses[keyof externalGetInvoiceResponses];
 
 export type externalUpdateInvoiceData = {
     body: InvoiceUpdate;
@@ -3257,6 +3493,136 @@ export type dataGetInvoiceFileResponses = {
      */
     200: unknown;
 };
+
+export type erpConnectorPendingBatchData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/erp-connector/pending-batch';
+};
+
+export type erpConnectorPendingBatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type erpConnectorPendingBatchError = erpConnectorPendingBatchErrors[keyof erpConnectorPendingBatchErrors];
+
+export type erpConnectorPendingBatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: ErpBatchOut;
+};
+
+export type erpConnectorPendingBatchResponse = erpConnectorPendingBatchResponses[keyof erpConnectorPendingBatchResponses];
+
+export type erpConnectorSyncResultsData = {
+    body: ErpSyncResultsIn;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/erp-connector/sync-results';
+};
+
+export type erpConnectorSyncResultsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type erpConnectorSyncResultsError = erpConnectorSyncResultsErrors[keyof erpConnectorSyncResultsErrors];
+
+export type erpConnectorSyncResultsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ErpSyncResultsOut;
+};
+
+export type erpConnectorSyncResultsResponse = erpConnectorSyncResultsResponses[keyof erpConnectorSyncResultsResponses];
+
+export type erpConnectorHeartbeatData = {
+    body: ErpHeartbeatIn;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/erp-connector/heartbeat';
+};
+
+export type erpConnectorHeartbeatErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type erpConnectorHeartbeatError = erpConnectorHeartbeatErrors[keyof erpConnectorHeartbeatErrors];
+
+export type erpConnectorHeartbeatResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type erpConnectorHeartbeatResponse = erpConnectorHeartbeatResponses[keyof erpConnectorHeartbeatResponses];
+
+export type erpConnectorConnectionStatusData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Company Id
+         */
+        company_id: string;
+    };
+    url: '/api/v1/erp-connector/connection';
+};
+
+export type erpConnectorConnectionStatusErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type erpConnectorConnectionStatusError = erpConnectorConnectionStatusErrors[keyof erpConnectorConnectionStatusErrors];
+
+export type erpConnectorConnectionStatusResponses = {
+    /**
+     * Response Erp-Connector-Connection Status
+     *
+     * Successful Response
+     */
+    200: ErpConnectionPublic | null;
+};
+
+export type erpConnectorConnectionStatusResponse = erpConnectorConnectionStatusResponses[keyof erpConnectorConnectionStatusResponses];
 
 export type suppliersListSuppliersData = {
     body?: never;

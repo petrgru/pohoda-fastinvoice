@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { companiesAddMemberData, companiesAddMemberErrors, companiesAddMemberResponses, companiesCreateApiKeyData, companiesCreateApiKeyErrors, companiesCreateApiKeyResponses, companiesCreateCompanyData, companiesCreateCompanyErrors, companiesCreateCompanyResponses, companiesDeleteCompanyData, companiesDeleteCompanyErrors, companiesDeleteCompanyResponses, companiesGetCompanyData, companiesGetCompanyErrors, companiesGetCompanyResponses, companiesGetVatInfoData, companiesGetVatInfoErrors, companiesGetVatInfoResponses, companiesListApiKeysData, companiesListApiKeysErrors, companiesListApiKeysResponses, companiesListCompaniesData, companiesListCompaniesErrors, companiesListCompaniesResponses, companiesListMembersData, companiesListMembersErrors, companiesListMembersResponses, companiesLookupUserByEmailData, companiesLookupUserByEmailErrors, companiesLookupUserByEmailResponses, companiesRemoveMemberData, companiesRemoveMemberErrors, companiesRemoveMemberResponses, companiesRevokeApiKeyData, companiesRevokeApiKeyErrors, companiesRevokeApiKeyResponses, companiesUpdateCompanyData, companiesUpdateCompanyErrors, companiesUpdateCompanyResponses, companiesUpdateMemberRoleData, companiesUpdateMemberRoleErrors, companiesUpdateMemberRoleResponses, dataGetInvoiceData, dataGetInvoiceErrors, dataGetInvoiceFileData, dataGetInvoiceFileErrors, dataGetInvoiceFileResponses, dataGetInvoiceResponses, dataListInvoicesData, dataListInvoicesErrors, dataListInvoicesResponses, exportGetExportFileData, exportGetExportFileErrors, exportGetExportFileResponses, exportGetExportQueueData, exportGetExportQueueErrors, exportGetExportQueueResponses, exportReportExportResultData, exportReportExportResultErrors, exportReportExportResultResponses, exportSyncCompaniesData, exportSyncCompaniesResponses, externalGetInvoiceData, externalGetInvoiceErrors, externalGetInvoiceResponses, externalChangeStatusData, externalChangeStatusErrors, externalChangeStatusResponses, externalListInvoicesData, externalListInvoicesErrors, externalListInvoicesResponses, externalUpdateInvoiceData, externalUpdateInvoiceErrors, externalUpdateInvoiceResponses, invoicesApproveInvoiceData, invoicesApproveInvoiceErrors, invoicesApproveInvoiceResponses, invoicesAssignCompanyData, invoicesAssignCompanyErrors, invoicesAssignCompanyResponses, invoicesCreateCompanyForInvoiceData, invoicesCreateCompanyForInvoiceErrors, invoicesCreateCompanyForInvoiceResponses, invoicesDeleteInvoiceData, invoicesDeleteInvoiceErrors, invoicesDeleteInvoiceResponses, invoicesGetInvoiceData, invoicesGetInvoiceErrors, invoicesGetInvoiceFileData, invoicesGetInvoiceFileErrors, invoicesGetInvoiceFileResponses, invoicesGetInvoiceResponses, invoicesInvoiceIdCandidatesData, invoicesInvoiceIdCandidatesErrors, invoicesInvoiceIdCandidatesResponses, invoicesInvoiceStatsData, invoicesInvoiceStatsErrors, invoicesInvoiceStatsResponses, invoicesListInvoicesData, invoicesListInvoicesErrors, invoicesListInvoicesResponses, invoicesListQueueData, invoicesListQueueErrors, invoicesListQueueResponses, invoicesReparseInvoiceData, invoicesReparseInvoiceErrors, invoicesReparseInvoiceResponses, invoicesUnapproveInvoiceData, invoicesUnapproveInvoiceErrors, invoicesUnapproveInvoiceResponses, invoicesUpdateInvoiceData, invoicesUpdateInvoiceErrors, invoicesUpdateInvoiceResponses, invoicesUploadInvoiceData, invoicesUploadInvoiceErrors, invoicesUploadInvoiceResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, suppliersGetSupplierData, suppliersGetSupplierErrors, suppliersGetSupplierResponses, suppliersListSuppliersData, suppliersListSuppliersErrors, suppliersListSuppliersResponses, suppliersSupplierInvoicesData, suppliersSupplierInvoicesErrors, suppliersSupplierInvoicesResponses, suppliersUpdateSupplierData, suppliersUpdateSupplierErrors, suppliersUpdateSupplierResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsRuntimeConfigData, utilsRuntimeConfigResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
+import type { companiesAddMemberData, companiesAddMemberErrors, companiesAddMemberResponses, companiesCreateApiKeyData, companiesCreateApiKeyErrors, companiesCreateApiKeyResponses, companiesCreateCompanyData, companiesCreateCompanyErrors, companiesCreateCompanyResponses, companiesDeleteCompanyData, companiesDeleteCompanyErrors, companiesDeleteCompanyResponses, companiesGetCompanyData, companiesGetCompanyErrors, companiesGetCompanyResponses, companiesGetVatInfoData, companiesGetVatInfoErrors, companiesGetVatInfoResponses, companiesListApiKeysData, companiesListApiKeysErrors, companiesListApiKeysResponses, companiesListCompaniesData, companiesListCompaniesErrors, companiesListCompaniesResponses, companiesListMembersData, companiesListMembersErrors, companiesListMembersResponses, companiesLookupUserByEmailData, companiesLookupUserByEmailErrors, companiesLookupUserByEmailResponses, companiesRemoveMemberData, companiesRemoveMemberErrors, companiesRemoveMemberResponses, companiesRevokeApiKeyData, companiesRevokeApiKeyErrors, companiesRevokeApiKeyResponses, companiesUpdateCompanyData, companiesUpdateCompanyErrors, companiesUpdateCompanyResponses, companiesUpdateMemberRoleData, companiesUpdateMemberRoleErrors, companiesUpdateMemberRoleResponses, dataGetInvoiceData, dataGetInvoiceErrors, dataGetInvoiceFileData, dataGetInvoiceFileErrors, dataGetInvoiceFileResponses, dataGetInvoiceResponses, dataListInvoicesData, dataListInvoicesErrors, dataListInvoicesResponses, erpConnectorConnectionStatusData, erpConnectorConnectionStatusErrors, erpConnectorConnectionStatusResponses, erpConnectorHeartbeatData, erpConnectorHeartbeatErrors, erpConnectorHeartbeatResponses, erpConnectorPendingBatchData, erpConnectorPendingBatchErrors, erpConnectorPendingBatchResponses, erpConnectorSyncResultsData, erpConnectorSyncResultsErrors, erpConnectorSyncResultsResponses, exportGetExportFileData, exportGetExportFileErrors, exportGetExportFileResponses, exportGetExportQueueData, exportGetExportQueueErrors, exportGetExportQueueResponses, exportReportExportResultData, exportReportExportResultErrors, exportReportExportResultResponses, exportSyncCompaniesData, exportSyncCompaniesResponses, externalChangeStatusData, externalChangeStatusErrors, externalChangeStatusResponses, externalUpdateInvoiceData, externalUpdateInvoiceErrors, externalUpdateInvoiceResponses, invoicesApproveInvoiceData, invoicesApproveInvoiceErrors, invoicesApproveInvoiceResponses, invoicesAssignCompanyData, invoicesAssignCompanyErrors, invoicesAssignCompanyResponses, invoicesCreateCompanyForInvoiceData, invoicesCreateCompanyForInvoiceErrors, invoicesCreateCompanyForInvoiceResponses, invoicesDeleteInvoiceData, invoicesDeleteInvoiceErrors, invoicesDeleteInvoiceResponses, invoicesGetInvoiceData, invoicesGetInvoiceErrors, invoicesGetInvoiceFileData, invoicesGetInvoiceFileErrors, invoicesGetInvoiceFileResponses, invoicesGetInvoiceResponses, invoicesInvoiceIdCandidatesData, invoicesInvoiceIdCandidatesErrors, invoicesInvoiceIdCandidatesResponses, invoicesInvoiceStatsData, invoicesInvoiceStatsErrors, invoicesInvoiceStatsResponses, invoicesListInvoicesData, invoicesListInvoicesErrors, invoicesListInvoicesResponses, invoicesListQueueData, invoicesListQueueErrors, invoicesListQueueResponses, invoicesReparseInvoiceData, invoicesReparseInvoiceErrors, invoicesReparseInvoiceResponses, invoicesRequeueExportInvoiceData, invoicesRequeueExportInvoiceErrors, invoicesRequeueExportInvoiceResponses, invoicesUnapproveInvoiceData, invoicesUnapproveInvoiceErrors, invoicesUnapproveInvoiceResponses, invoicesUpdateInvoiceData, invoicesUpdateInvoiceErrors, invoicesUpdateInvoiceResponses, invoicesUploadInvoiceData, invoicesUploadInvoiceErrors, invoicesUploadInvoiceResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, suppliersGetSupplierData, suppliersGetSupplierErrors, suppliersGetSupplierResponses, suppliersListSuppliersData, suppliersListSuppliersErrors, suppliersListSuppliersResponses, suppliersSupplierInvoicesData, suppliersSupplierInvoicesErrors, suppliersSupplierInvoicesResponses, suppliersUpdateSupplierData, suppliersUpdateSupplierErrors, suppliersUpdateSupplierResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsRuntimeConfigData, utilsRuntimeConfigResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -690,6 +690,20 @@ export class InvoicesService {
     }
     
     /**
+     * Requeue Export Invoice
+     *
+     * User confirms another connector attempt (resets the retry counter).
+     */
+    public static requeueExportInvoice<ThrowOnError extends boolean = true>(options: Options<invoicesRequeueExportInvoiceData, ThrowOnError>) {
+        return (options.client ?? client).post<invoicesRequeueExportInvoiceResponses, invoicesRequeueExportInvoiceErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/invoices/{invoice_id}/requeue-export',
+            ...options
+        });
+    }
+    
+    /**
      * Reparse Invoice
      */
     public static reparseInvoice<ThrowOnError extends boolean = true>(options: Options<invoicesReparseInvoiceData, ThrowOnError>) {
@@ -759,30 +773,6 @@ export class ExportService {
 }
 
 export class ExternalService {
-    /**
-     * List Invoices
-     *
-     * Invoices of the key's company, newest first.
-     */
-    public static listInvoices<ThrowOnError extends boolean = true>(options?: Options<externalListInvoicesData, ThrowOnError>) {
-        return (options?.client ?? client).get<externalListInvoicesResponses, externalListInvoicesErrors, ThrowOnError>({
-            responseType: 'json',
-            url: '/api/v1/external/invoices',
-            ...options
-        });
-    }
-    
-    /**
-     * Get Invoice
-     */
-    public static getInvoice<ThrowOnError extends boolean = true>(options: Options<externalGetInvoiceData, ThrowOnError>) {
-        return (options.client ?? client).get<externalGetInvoiceResponses, externalGetInvoiceErrors, ThrowOnError>({
-            responseType: 'json',
-            url: '/api/v1/external/invoices/{invoice_id}',
-            ...options
-        });
-    }
-    
     /**
      * Update Invoice
      *
@@ -856,6 +846,76 @@ export class DataService {
         return (options.client ?? client).get<dataGetInvoiceFileResponses, dataGetInvoiceFileErrors, ThrowOnError>({
             responseType: 'json',
             url: '/api/v1/data/invoices/{invoice_id}/file',
+            ...options
+        });
+    }
+}
+
+export class ErpConnectorService {
+    /**
+     * Pending Batch
+     *
+     * Claim the next invoices to import; suppliers come before invoices.
+     *
+     * Claimed records switch to the ``processing`` state so no other
+     * connector instance picks them up; a watchdog re-queues claims whose
+     * result never arrived.
+     */
+    public static connectorPendingBatch<ThrowOnError extends boolean = true>(options?: Options<erpConnectorPendingBatchData, ThrowOnError>) {
+        return (options?.client ?? client).get<erpConnectorPendingBatchResponses, erpConnectorPendingBatchErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/erp-connector/pending-batch',
+            ...options
+        });
+    }
+    
+    /**
+     * Sync Results
+     *
+     * Report the connector's verdict for each claimed record.
+     *
+     * ``synced`` requires ``remote_number`` (the ERP document number),
+     * ``error`` counts as one automatic attempt (max 3, then a user must
+     * re-queue), ``retry_later`` re-queues without touching the counter.
+     */
+    public static connectorSyncResults<ThrowOnError extends boolean = true>(options: Options<erpConnectorSyncResultsData, ThrowOnError>) {
+        return (options.client ?? client).post<erpConnectorSyncResultsResponses, erpConnectorSyncResultsErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/erp-connector/sync-results',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Heartbeat
+     *
+     * Keep-alive with connector stats; feeds the health dot in the UI.
+     */
+    public static connectorHeartbeat<ThrowOnError extends boolean = true>(options: Options<erpConnectorHeartbeatData, ThrowOnError>) {
+        return (options.client ?? client).post<erpConnectorHeartbeatResponses, erpConnectorHeartbeatErrors, ThrowOnError>({
+            url: '/api/v1/erp-connector/heartbeat',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Connection Status
+     *
+     * Last connector heartbeat of a company (for the company dialog).
+     */
+    public static connectorConnectionStatus<ThrowOnError extends boolean = true>(options: Options<erpConnectorConnectionStatusData, ThrowOnError>) {
+        return (options.client ?? client).get<erpConnectorConnectionStatusResponses, erpConnectorConnectionStatusErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/erp-connector/connection',
             ...options
         });
     }

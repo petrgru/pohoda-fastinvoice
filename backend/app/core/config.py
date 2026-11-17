@@ -93,6 +93,8 @@ class Settings(BaseSettings):
     LLM_STRUCTURED_TIMEOUT_SECONDS: int = 150
     # resume documents left in uploaded/parsing by a server restart on startup
     REPARSE_ON_STARTUP: bool = True
+    # how often the watchdog re-queues invoices whose connector claim timed out
+    EXPORT_WATCHDOG_SECONDS: int = 300
     # Path to tesseract binary for OCR of scans/photos; None disables OCR.
     TESSERACT_PATH: str | None = "tesseract"
 

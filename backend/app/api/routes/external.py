@@ -97,6 +97,10 @@ def update_invoice(
         raise HTTPException(
             status_code=403, detail="Faktura je po importu uzamčená (nelze měnit)"
         )
+    # an external edit also releases an in-flight connector claim
+    invoice_service.release_export_claim(
+        session, invoice, reason="Upraveno účetní aplikací během odesílání"
+    )
     changes = invoice_in.model_dump(
         exclude_unset=True, exclude={"confirm_account_change"}
     )

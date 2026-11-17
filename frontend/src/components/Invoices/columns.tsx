@@ -175,7 +175,12 @@ export function useInvoiceColumns() {
       {
         accessorKey: "state",
         header: t("invoices.colState"),
-        cell: ({ row }) => <StateBadge state={row.original.state} />,
+        cell: ({ row }) => (
+          <StateBadge
+            state={row.original.state}
+            errorMessage={row.original.erp_error_message}
+          />
+        ),
       },
       {
         id: "actions",

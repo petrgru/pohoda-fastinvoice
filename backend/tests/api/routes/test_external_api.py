@@ -65,9 +65,7 @@ def test_external_key_only_sees_its_company(
     assert [item["id"] for item in body["data"]] == [str(mine.id)]
     assert body["count"] == 1
 
-    assert (
-        client.get(f"{DATA}/invoices/{other.id}", headers=headers).status_code == 404
-    )
+    assert client.get(f"{DATA}/invoices/{other.id}", headers=headers).status_code == 404
     detail = client.get(f"{DATA}/invoices/{mine.id}", headers=headers)
     assert detail.status_code == 200
     assert detail.json()["supplier_name"] == mine.supplier_name
@@ -251,9 +249,7 @@ def test_generating_a_key_replaces_the_previous_one(
     assert rotated != key
 
     # the old key is gone instantly, the new one is the only key
-    assert (
-        client.get(f"{DATA}/invoices", headers={"X-API-Key": key}).status_code == 401
-    )
+    assert client.get(f"{DATA}/invoices", headers={"X-API-Key": key}).status_code == 401
     assert (
         client.get(f"{DATA}/invoices", headers={"X-API-Key": rotated}).status_code
         == 200

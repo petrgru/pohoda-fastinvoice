@@ -46,7 +46,8 @@ def test_duzp_falls_back_to_issue_date() -> None:
     text = (
         "Faktura 2024000777 ALFA s.r.o. IČ: 47123737 DIČ: CZ47123737 "
         "Datum vystavení: 1.3.2024 Datum splatnosti: 15.3.2024 Celkem 1210,00 Kč "
-        + "filler " * 20
+        + "filler "
+        * 20
     )
     parsed = parsing.rule_extract(text)
     assert parsed is not None

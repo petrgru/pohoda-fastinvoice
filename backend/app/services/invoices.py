@@ -12,8 +12,9 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import and_, or_
 from sqlalchemy import text as sa_text
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.core.db import engine
 from app.models import (
@@ -45,17 +46,27 @@ _ALLOWED_TRANSITIONS: dict[InvoiceState, set[InvoiceState]] = {
     InvoiceState.PARSING: {InvoiceState.NEEDS_REVIEW},
     InvoiceState.NEEDS_REVIEW: {InvoiceState.READY_FOR_EXPORT, InvoiceState.PARSING},
     InvoiceState.READY_FOR_EXPORT: {
+        InvoiceState.PROCESSING,
         InvoiceState.EXPORTED,
         InvoiceState.EXPORT_FAILED,
         InvoiceState.NEEDS_REVIEW,
     },
+    InvoiceState.PROCESSING: {
+        InvoiceState.EXPORTED,
+        InvoiceState.EXPORT_FAILED,
+        InvoiceState.READY_FOR_EXPORT,
+    },
     InvoiceState.EXPORT_FAILED: {
         InvoiceState.NEEDS_REVIEW,
         InvoiceState.READY_FOR_EXPORT,
+        InvoiceState.PROCESSING,
         InvoiceState.EXPORTED,
     },
     InvoiceState.EXPORTED: set(),
 }
+
+# automatic connector import attempts before a human must re-queue
+EXPORT_MAX_RETRIES = 3
 
 
 class InvoiceLockedError(PermissionError):
@@ -281,7 +292,10 @@ def queue_reasons(session: Session, invoice: Invoice) -> list[str]:
     if company is not None and invoice.approved_at is None:
         reasons.append("queue.reason.awaiting_approval")
     if state is InvoiceState.EXPORT_FAILED:
-        reasons.append(f"queue.reason.export_failed|{invoice.state_note or ''}")
+        detail = invoice.erp_error_message or invoice.state_note or ""
+        reasons.append(f"queue.reason.export_failed|{detail}")
+    elif state is InvoiceState.PROCESSING:
+        reasons.append("queue.reason.export_in_progress")
     return reasons
 
 
@@ -297,6 +311,8 @@ def assert_approvable(session: Session, invoice: Invoice) -> None:
         raise ApprovalNotAllowedError("errors.approval_company_inactive")
     if invoice.state in (InvoiceState.UPLOADED, InvoiceState.PARSING):
         raise ApprovalNotAllowedError("errors.approval_not_parsed")
+    if InvoiceState(invoice.state) is InvoiceState.PROCESSING:
+        raise ApprovalNotAllowedError("errors.approval_in_progress")
     if invoice.vat_check_ok is False:
         raise ApprovalNotAllowedError("errors.approval_vat_mismatch")
     missing = missing_required_dates(invoice)
@@ -352,6 +368,7 @@ def revoke_approval(session: Session, invoice: Invoice, *, user: User) -> Invoic
     """User pulls an invoice back from the export queue (before import)."""
     if InvoiceState(invoice.state) is InvoiceState.EXPORTED:
         raise InvoiceLockedError("errors.invoice_locked")
+    release_export_claim(session, invoice, reason="Odzvážené schválení uživatelem")
     invoice.approved_at = None
     invoice.approved_by_id = None
     session.add(invoice)
@@ -381,20 +398,122 @@ def record_export_result(
     if success:
         invoice.exported_at = get_datetime_utc()
         invoice.export_batch_ref = batch_ref
+        invoice.erp_error_message = None
+        invoice.export_claimed_at = None
         session.add(invoice)
         change_state(
             session,
             invoice,
             InvoiceState.EXPORTED,
-            note=f"Importováno do systému, dávka {batch_ref}",
+            note=(
+                f"Importováno do systému, dávka {batch_ref}"
+                if batch_ref
+                else "Importováno do systému"
+            ),
         )
     else:
         invoice.export_batch_ref = batch_ref
+        invoice.erp_error_message = (error or "export selhal")[:500]
+        invoice.export_claimed_at = None
         session.add(invoice)
         change_state(
             session, invoice, InvoiceState.EXPORT_FAILED, note=error or "export selhal"
         )
     return invoice
+
+
+def release_export_claim(session: Session, invoice: Invoice, *, reason: str) -> Invoice:
+    """Return an invoice claimed by a connector back to the export queue."""
+    if InvoiceState(invoice.state) is not InvoiceState.PROCESSING:
+        return invoice
+    invoice.export_claimed_at = None
+    session.add(invoice)
+    return change_state(session, invoice, InvoiceState.READY_FOR_EXPORT, note=reason)
+
+
+def claim_export_batch(
+    session: Session, company_id: uuid.UUID, *, limit: int
+) -> list[Invoice]:
+    """Hand the connector the next batch of invoices ready for import.
+
+    Waits are ``ready_for_export`` or failed ones below the retry limit; the
+    rows are locked with SKIP LOCKED so a second connector instance simply
+    picks different records.
+    """
+    rows = session.exec(
+        select(Invoice)
+        .where(
+            Invoice.recipient_company_id == company_id,
+            or_(
+                Invoice.state == InvoiceState.READY_FOR_EXPORT.value,
+                and_(
+                    Invoice.state == InvoiceState.EXPORT_FAILED.value,
+                    Invoice.export_retry_count < EXPORT_MAX_RETRIES,
+                ),
+            ),
+        )
+        .order_by(col(Invoice.created_at).asc())
+        .limit(limit)
+        .with_for_update(skip_locked=True)
+    ).all()
+    claimed = list(rows)
+    now = get_datetime_utc()
+    for invoice in claimed:
+        change_state(
+            session, invoice, InvoiceState.PROCESSING, note="Vyzvednuto konektorem"
+        )
+        invoice.export_claimed_at = now
+        session.add(invoice)
+    session.commit()
+    return claimed
+
+
+def release_stale_export_claims(
+    session: Session, *, ttl: timedelta = timedelta(minutes=10)
+) -> int:
+    """Re-queue claims whose connector never reported a result (crash mid-batch)."""
+    cutoff = get_datetime_utc() - ttl
+    stuck = session.exec(
+        select(Invoice).where(
+            Invoice.state == InvoiceState.PROCESSING.value,
+            col(Invoice.export_claimed_at) < cutoff,
+        )
+    ).all()
+    for invoice in stuck:
+        release_export_claim(
+            session,
+            invoice,
+            reason="Konektor nedokončil přenos (timeout, vráceno do fronty)",
+        )
+    session.commit()
+    if stuck:
+        logger.info("released %d stale connector claim(s)", len(stuck))
+    return len(stuck)
+
+
+def requeue_export(
+    session: Session, invoice: Invoice, *, user: User | None = None
+) -> Invoice:
+    """User forces another connector attempt (resets the retry counter)."""
+    state = InvoiceState(invoice.state)
+    if state is InvoiceState.EXPORTED:
+        raise InvoiceLockedError("errors.invoice_locked")
+    if state is InvoiceState.PROCESSING:
+        release_export_claim(session, invoice, reason="Znovu zařazeno uživatelem")
+        return invoice
+    if state is not InvoiceState.EXPORT_FAILED:
+        raise InvalidTransitionError(f"{state.value} -> requeue")
+    invoice.export_retry_count = 0
+    invoice.erp_error_message = None
+    invoice.export_claimed_at = None
+    session.add(invoice)
+    return change_state(
+        session,
+        invoice,
+        InvoiceState.READY_FOR_EXPORT,
+        note="Znovu zařazeno uživatelem",
+        user=user,
+    )
 
 
 def delete_invoice(

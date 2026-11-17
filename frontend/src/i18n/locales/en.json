@@ -32,7 +32,9 @@
     "needs_review": "Needs review",
     "ready_for_export": "Ready for export",
     "exported": "Saved in system",
-    "export_failed": "Export failed"
+    "export_failed": "Export failed",
+    "processing": "Sending to system",
+    "exportFailedDetail": "Import error: {{detail}}"
   },
   "dashboard": {
     "subtitle": "Statistics and document search"
@@ -160,7 +162,9 @@
     "recipientSwitch": "Switch to this company",
     "externalNumber": "Document number in the accounting system",
     "accountsPanel": "Bank accounts",
-    "accountsNone": "no account"
+    "accountsNone": "no account",
+    "requeueMenuItem": "Queue for import again",
+    "requeued": "The document was queued for import again"
   },
   "companies": {
     "title": "Our companies",
@@ -263,7 +267,8 @@
       "export_failed_bare": "Previous export failed",
       "missingIssueDate": "Issue date missing",
       "missingDueDate": "Due date missing",
-      "missingTaxDate": "Tax supply date missing"
+      "missingTaxDate": "Tax supply date missing",
+      "export_in_progress": "The accounting connector is sending the document now"
     },
     "colAction": "Actions"
   },
@@ -293,7 +298,8 @@
     "account_changed_confirm": "The bank account differs from the document or the supplier history – confirm the change",
     "supplier_not_found": "Supplier not found",
     "dateRequired": "A document needs the issue, due and tax supply dates (missing: {{detail}})",
-    "approvalMissingDates": "The document cannot be approved without the issue, due and tax supply dates (missing: {{detail}})"
+    "approvalMissingDates": "The document cannot be approved without the issue, due and tax supply dates (missing: {{detail}})",
+    "approval_in_progress": "The document is being sent to the accounting system – revoke the confirmation or wait for it to finish"
   },
   "login": {
     "title": "Log in",
@@ -351,7 +357,13 @@
     "keyOnceHint": "This is the only time the full key is shown – copy it now.",
     "rotateKey": "Generate new key",
     "rotateConfirm": "The current key stops working immediately. Replace it with a new one?",
-    "keyDefaultLabel": "API key"
+    "keyDefaultLabel": "API key",
+    "connectorTitle": "Accounting system (connector)",
+    "connectorNever": "The connector has not reported yet",
+    "connectorOnline": "Connected",
+    "connectorOffline": "Disconnected",
+    "connectorQueue": "queue {{count}}",
+    "connectorLastSeen": "Last seen {{time}}"
   },
   "companySwitcher": {
     "label": "Company switcher",
