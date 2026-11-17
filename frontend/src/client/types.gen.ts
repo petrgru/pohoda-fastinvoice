@@ -666,6 +666,54 @@ export type IdCandidatesPublic = {
 };
 
 /**
+ * InvoiceApprove
+ *
+ * Approval request body; ``delete_duplicates`` resolves a number clash.
+ */
+export type InvoiceApprove = {
+    /**
+     * Delete Duplicates
+     */
+    delete_duplicates?: boolean;
+};
+
+/**
+ * InvoiceDuplicateHint
+ *
+ * Another document carrying the same number from the same supplier.
+ */
+export type InvoiceDuplicateHint = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Original Filename
+     */
+    original_filename: string;
+    /**
+     * Invoice Number
+     */
+    invoice_number?: string | null;
+    /**
+     * State
+     */
+    state: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Recipient Company Name
+     */
+    recipient_company_name?: string | null;
+    /**
+     * Approved
+     */
+    approved?: boolean;
+};
+
+/**
  * InvoicePublic
  *
  * Public representation built via `crud.invoices.to_public()`.
@@ -882,6 +930,10 @@ export type InvoicePublic = {
      * Queue Reasons
      */
     queue_reasons?: Array<string>;
+    /**
+     * Duplicates
+     */
+    duplicates?: Array<InvoiceDuplicateHint>;
 };
 
 /**
@@ -3073,7 +3125,10 @@ export type invoicesCreateCompanyForInvoiceResponses = {
 export type invoicesCreateCompanyForInvoiceResponse = invoicesCreateCompanyForInvoiceResponses[keyof invoicesCreateCompanyForInvoiceResponses];
 
 export type invoicesApproveInvoiceData = {
-    body?: never;
+    /**
+     * Approve In
+     */
+    body?: InvoiceApprove | null;
     path: {
         /**
          * Invoice Id

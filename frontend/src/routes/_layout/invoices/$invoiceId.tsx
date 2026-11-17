@@ -1,6 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link as RouterLink,
+  useNavigate,
+} from "@tanstack/react-router"
 import { AxiosError } from "axios"
 import {
   AlertTriangle,
@@ -18,7 +22,11 @@ import { useFieldArray, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
 
-import { CompaniesService, InvoicesService } from "@/client"
+import {
+  CompaniesService,
+  type InvoiceDuplicateHint,
+  InvoicesService,
+} from "@/client"
 import { AddCompanyForInvoice } from "@/components/Invoices/AddCompanyForInvoice"
 import { formatPrice } from "@/components/Invoices/columns"
 import { IdCandidates } from "@/components/Invoices/IdCandidates"
@@ -287,6 +295,8 @@ function InvoiceDetail() {
   const [accountConfirmData, setAccountConfirmData] = useState<FormData | null>(
     null,
   )
+  // resolving a document that is already approved elsewhere needs a decision
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false)
 
   const saveMutation = useMutation({
     mutationFn: ({ data, confirm }: { data: FormData; confirm: boolean }) => {
@@ -362,8 +372,11 @@ function InvoiceDetail() {
   })
 
   const approveMutation = useMutation({
-    mutationFn: () =>
-      InvoicesService.approveInvoice({ path: { invoice_id: invoiceId } }),
+    mutationFn: (deleteDuplicates: boolean) =>
+      InvoicesService.approveInvoice({
+        path: { invoice_id: invoiceId },
+        body: deleteDuplicates ? { delete_duplicates: true } : undefined,
+      }),
     onSuccess: () => {
       showSuccessToast(t("invoice.approved"))
       invalidate()
@@ -407,6 +420,15 @@ function InvoiceDetail() {
       ? `${values[0]} (+${values.length - 1})`
       : values[0]
   })()
+  // copies of the same document number from the same supplier; those already
+  // approved for (or through) the export block confirming this one
+  const duplicateDocs = invoice.duplicates ?? []
+  const blockingDuplicates = duplicateDocs.filter((item) =>
+    ["ready_for_export", "processing", "exported"].includes(item.state),
+  )
+  const duplicatesLocked = blockingDuplicates.some(
+    (item) => item.state === "exported",
+  )
   const companyAccounts = (
     invoice.company?.bank_accounts?.length
       ? invoice.company.bank_accounts.map((row) => row.account ?? row.iban)
@@ -485,6 +507,17 @@ function InvoiceDetail() {
                 <li key={reason}>{translateServerMessage(reason)}</li>
               ))}
             </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {duplicateDocs.length > 0 && (
+        <Alert variant="destructive" data-testid="duplicate-alert">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>{t("invoice.duplicateTitle")}</AlertTitle>
+          <AlertDescription>
+            {t("invoice.duplicateText")}
+            <DuplicateList duplicates={duplicateDocs} />
           </AlertDescription>
         </Alert>
       )}
@@ -1287,7 +1320,13 @@ function InvoiceDetail() {
                   <LoadingButton
                     loading={approveMutation.isPending}
                     disabled={parsingInProgress}
-                    onClick={() => approveMutation.mutate()}
+                    onClick={() => {
+                      if (blockingDuplicates.length > 0) {
+                        setDuplicateDialogOpen(true)
+                      } else {
+                        approveMutation.mutate(false)
+                      }
+                    }}
                     data-testid="approve-button"
                   >
                     <CheckCircle2 className="mr-2 size-4" />
@@ -1370,6 +1409,66 @@ function InvoiceDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
+        <DialogContent data-testid="duplicate-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("invoice.duplicateTitle")}</DialogTitle>
+            <DialogDescription>
+              {duplicatesLocked
+                ? t("invoice.duplicateLockedText")
+                : t("invoice.duplicateApproveText")}
+              <DuplicateList duplicates={duplicateDocs} />
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              data-testid="duplicate-dialog-cancel"
+              onClick={() => setDuplicateDialogOpen(false)}
+            >
+              {t("common.cancel")}
+            </Button>
+            {!duplicatesLocked && (
+              <LoadingButton
+                loading={approveMutation.isPending}
+                data-testid="duplicate-dialog-approve"
+                onClick={() => {
+                  approveMutation.mutate(true)
+                  setDuplicateDialogOpen(false)
+                }}
+              >
+                {t("invoice.duplicateApproveButton")}
+              </LoadingButton>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  )
+}
+
+/** Copies of the same document, linked so the user can compare them. */
+function DuplicateList({ duplicates }: { duplicates: InvoiceDuplicateHint[] }) {
+  const { t } = useTranslation()
+  return (
+    <ul className="mt-2 list-disc space-y-1 pl-4" data-testid="duplicate-list">
+      {duplicates.map((item) => (
+        <li key={item.id} data-testid={`duplicate-item-${item.id}`}>
+          <RouterLink
+            to="/invoices/$invoiceId"
+            params={{ invoiceId: item.id }}
+            className="underline underline-offset-2"
+          >
+            {item.original_filename}
+          </RouterLink>
+          {` – ${new Date(item.created_at ?? 0).toLocaleString(intlLocale())} – `}
+          {t(`states.${item.state}`, { defaultValue: item.state })}
+          {item.recipient_company_name
+            ? ` · ${item.recipient_company_name}`
+            : ""}
+        </li>
+      ))}
+    </ul>
   )
 }

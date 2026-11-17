@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.models import (
     IdCandidatesPublic,
     Invoice,
+    InvoiceApprove,
     InvoicePublic,
     InvoicesPublic,
     InvoiceState,
@@ -463,14 +464,30 @@ def create_company_for_invoice(
 
 @router.post("/{invoice_id}/approve", response_model=InvoicePublic)
 def approve_invoice(
-    *, session: SessionDep, current_user: CurrentUser, invoice_id: UUID
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    invoice_id: UUID,
+    approve_in: InvoiceApprove | None = None,
 ) -> InvoicePublic:
-    """Confirm the import: switches the invoice into the export queue."""
+    """Confirm the import: switches the invoice into the export queue.
+
+    ``delete_duplicates`` explicitly replaces documents with the same number
+    from the same supplier that are already approved – the user has verified
+    this record is the better copy of the very same document.
+    """
     invoice = _get_invoice(session, invoice_id, user=current_user)
     _assert_mutable(invoice)
     try:
-        invoice_service.approve(session, invoice, user=current_user)
+        invoice_service.approve(
+            session,
+            invoice,
+            user=current_user,
+            delete_duplicates=bool(approve_in and approve_in.delete_duplicates),
+        )
     except invoice_service.ApprovalNotAllowedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except invoice_service.DuplicateInvoiceError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     session.commit()
     session.refresh(invoice)

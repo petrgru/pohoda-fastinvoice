@@ -249,10 +249,14 @@ test.describe("Invoice workflow", () => {
     test.setTimeout(150_000)
 
     // Seed: company + uploaded invoice (parsed in background on the server)
-    const company = await createCompany(`E2E Dodavatel ${Date.now()}`)
+    // the number must be unique per run – invoices imported by earlier runs
+    // stay in the database (exported ones cannot be deleted) and repeated
+    // numbers would make this invoice a duplicate of one of them
+    const stamp = Date.now()
+    const company = await createCompany(`E2E Dodavatel ${stamp}`)
     const invoice = await uploadInvoice([
-      "FAKTURA E2E",
-      "Dodavatel: E2E dodavatel s.r.o.",
+      `FAKTURA E2E${stamp}`,
+      `Dodavatel: E2E dodavatel ${stamp} s.r.o.`,
       "Celkem 1210,00 Kc",
     ])
 
@@ -913,6 +917,63 @@ test.describe("Invoice workflow", () => {
     } finally {
       await tryDeleteInvoice(doomed.id)
       await tryDeleteInvoice(survivor.id)
+    }
+  })
+
+  test("the same document scanned twice is flagged as a duplicate", async ({
+    page,
+  }) => {
+    test.slow()
+    test.setTimeout(420_000)
+    const stamp = Date.now()
+    const company = await createCompany(`DUPTEST ${stamp}`)
+    const lines = [
+      `Faktura DUPR${stamp}`,
+      "Dodavatel: Opakovany Dodavatel s.r.o.",
+      "Celkem 1210,00 Kc",
+    ]
+    const first = await uploadInvoice(lines)
+    const second = await uploadInvoice(lines)
+    try {
+      await waitForParsed(first.id)
+      await waitForParsed(second.id)
+
+      // both copies point at each other
+      await page.goto(`/invoices/${second.id}`)
+      await expect(page.getByTestId("duplicate-alert")).toBeVisible()
+      await expect(
+        page
+          .getByTestId("duplicate-list")
+          .getByTestId(`duplicate-item-${first.id}`),
+      ).toBeVisible()
+
+      // approve the first copy – nothing blocks it
+      await page.goto(`/invoices/${first.id}`)
+      await page.getByTestId("company-select").click()
+      await page.getByRole("option", { name: company.name }).click()
+      await page.getByTestId("approve-button").click()
+      await expect(page.getByTestId("state-badge")).toHaveText("K exportu", {
+        timeout: 10_000,
+      })
+
+      // approving the second copy needs an explicit decision
+      await page.goto(`/invoices/${second.id}`)
+      await page.getByTestId("company-select").click()
+      await page.getByRole("option", { name: company.name }).click()
+      await page.getByTestId("approve-button").click()
+      await expect(page.getByTestId("duplicate-dialog")).toBeVisible()
+      await expect(page.getByTestId("state-badge")).toHaveText("Ke kontrole")
+
+      // keep the newer copy, drop the approved original
+      await page.getByTestId("duplicate-dialog-approve").click()
+      await expect(page.getByTestId("state-badge")).toHaveText("K exportu", {
+        timeout: 10_000,
+      })
+      expect(await tryDeleteInvoice(first.id)).toBe(404)
+    } finally {
+      await tryDeleteInvoice(first.id)
+      await tryDeleteInvoice(second.id)
+      await deleteCompaniesByName(`DUPTEST ${stamp}`)
     }
   })
 

@@ -1,5 +1,6 @@
 import enum
 import re
+import unicodedata
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -180,6 +181,48 @@ def normalize_bank_account(value: str) -> str:
 def normalize_iban(value: str) -> str:
     """Uppercase an IBAN without spaces (format checked separately)."""
     return re.sub(r"\s+", "", value).upper()
+
+
+_SUPPLIER_NAME_SUFFIX = re.compile(
+    r"(s\.?\s?r\.?\s?o\.?|v\.?\s?o\.?\s?s\.?|z\.?\s?u\.?\s?o\.?|k\.?\s?s\.?|"
+    r"a\.?\s?s\.?|a\.?\s?g\.?|s\.?\s?e\.?|gmbh|ltd\.?|llc\.?|inc\.?|sro|as)\s*[,.]?\s*$",
+    re.IGNORECASE,
+)
+
+
+def normalize_supplier_name(value: str | None) -> str:
+    """Collapse the naming noise of a vendor: case, diacritics and legal form.
+
+    ``DELL EMC, s.r.o.`` → ``dell emc``. Legal-form suffixes carry no meaning
+    for matching – a renamed ``X s.r.o.`` is still the same vendor – so both
+    sides end up equal or clearly different, never an artificial mismatch.
+    """
+    text = (value or "").strip()
+    while True:
+        stripped = _SUPPLIER_NAME_SUFFIX.sub("", text).strip()
+        if stripped == text:
+            break
+        text = stripped
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ascii", "ignore").decode("ascii").lower()
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+
+def normalize_document_number(value: str | None) -> str:
+    """Comparable form of a document number: letters/digits only, lowercase.
+
+    ``FV 2606-452354``, ``fv/2606452354`` and ``FV2606452354`` all identify the
+    same document, so the separators and the case must not matter.
+    """
+    text = unicodedata.normalize("NFKD", value or "")
+    text = text.encode("ascii", "ignore").decode("ascii").lower()
+    return re.sub(r"[^a-z0-9]+", "", text)
+
+
+def normalize_supplier_ico(value: str | None) -> str | None:
+    """Digits of an IČO without separators, or None when unusable."""
+    digits = re.sub(r"\D", "", value or "")
+    return digits or None
 
 
 class PaymentMethod(str, enum.Enum):  # noqa: UP042 - str mixin needed for DB values
@@ -766,7 +809,7 @@ class Invoice(SQLModel, table=True):
     llm_confidence: float | None = None
 
     # Parsed fields (LLM, user-correctable)
-    invoice_number: str | None = Field(default=None, max_length=64)
+    invoice_number: str | None = Field(default=None, max_length=64, index=True)
     supplier_name: str | None = Field(default=None, max_length=255)
     supplier_ico: str | None = Field(default=None, max_length=8)
     supplier_dic: str | None = Field(default=None, max_length=15)
@@ -925,6 +968,27 @@ class InvoicePublic(SQLModel):
     supplier_confirmed_accounts: list[str] | None = None
     can_delete: bool = True
     queue_reasons: list[str] = []
+    # documents with the same number from the same supplier (duplicates)
+    duplicates: list[InvoiceDuplicateHint] = []
+
+
+class InvoiceApprove(SQLModel):
+    """Approval request body; ``delete_duplicates`` resolves a number clash."""
+
+    delete_duplicates: bool = False
+
+
+class InvoiceDuplicateHint(SQLModel):
+    """Another document carrying the same number from the same supplier."""
+
+    id: uuid.UUID
+    original_filename: str
+    invoice_number: str | None = None
+    state: str
+    created_at: datetime | None = None
+    recipient_company_name: str | None = None
+    # True when that document is already approved for (or through) the export
+    approved: bool = False
 
 
 class IdCandidate(SQLModel):

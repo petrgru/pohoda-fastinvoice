@@ -53,7 +53,7 @@ def test_sync_uploads_document(db, monkeypatch, enabled) -> None:
     assert posts, recorder.calls
     doc = posts[0][2]["json"][0]
     assert doc["id"] == str(invoice.id)
-    assert doc["invoice_number"] == "2024000123"
+    assert doc["invoice_number"] == invoice.invoice_number
 
 
 def test_sync_is_noop_when_disabled(db, monkeypatch) -> None:

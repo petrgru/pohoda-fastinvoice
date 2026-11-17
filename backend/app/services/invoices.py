@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy import text as sa_text
 from sqlmodel import Session, col, select
 
@@ -21,6 +21,7 @@ from app.models import (
     DELETABLE_STATES,
     AuditLog,
     Invoice,
+    InvoiceDuplicateHint,
     InvoicePublic,
     InvoiceState,
     InvoiceStateCounts,
@@ -33,6 +34,9 @@ from app.models import (
     as_vat_items,
     check_vat_items,
     get_datetime_utc,
+    normalize_document_number,
+    normalize_supplier_ico,
+    normalize_supplier_name,
     vat_items_to_json,
     vat_rate_warnings,
 )
@@ -68,6 +72,18 @@ _ALLOWED_TRANSITIONS: dict[InvoiceState, set[InvoiceState]] = {
 # automatic connector import attempts before a human must re-queue
 EXPORT_MAX_RETRIES = 3
 
+# Duplicate detection compares the document number of a *document*, not the
+# bytes of a file: rescanning the same paper invoice produces different PDF
+# bytes every time, so a file hash alone never catches it. States whose
+# duplicate has already reached (or entered) the accounting system block the
+# approval of a second copy – importing the same document twice would be a
+# real posting error.
+DUPLICATE_BLOCKING_STATES = {
+    InvoiceState.READY_FOR_EXPORT,
+    InvoiceState.PROCESSING,
+    InvoiceState.EXPORTED,
+}
+
 
 class InvoiceLockedError(PermissionError):
     """Raised when a record can no longer be modified or deleted."""
@@ -79,6 +95,10 @@ class InvalidTransitionError(ValueError):
 
 class ApprovalNotAllowedError(ValueError):
     pass
+
+
+class DuplicateInvoiceError(ValueError):
+    """The same document number is already approved (or imported) elsewhere."""
 
 
 def log_audit(
@@ -263,7 +283,9 @@ def missing_required_dates(invoice: Invoice) -> list[str]:
     ]
 
 
-def queue_reasons(session: Session, invoice: Invoice) -> list[str]:
+def queue_reasons(
+    session: Session, invoice: Invoice, *, duplicates: list[Invoice] | None = None
+) -> list[str]:
     """Machine-readable keys for why an invoice stays in the task queue.
 
     The frontend translates ``queue.reason.*`` entries; a dynamic detail
@@ -289,6 +311,10 @@ def queue_reasons(session: Session, invoice: Invoice) -> list[str]:
     reasons.extend(
         f"queue.reason.missing{key}" for key in missing_required_dates(invoice)
     )
+    if duplicates is None:
+        duplicates = find_duplicates(session, invoice)
+    if duplicates:
+        reasons.append(f"queue.reason.duplicate|{duplicate_detail(duplicates)}")
     if company is not None and invoice.approved_at is None:
         reasons.append("queue.reason.awaiting_approval")
     if state is InvoiceState.EXPORT_FAILED:
@@ -297,6 +323,61 @@ def queue_reasons(session: Session, invoice: Invoice) -> list[str]:
     elif state is InvoiceState.PROCESSING:
         reasons.append("queue.reason.export_in_progress")
     return reasons
+
+
+def find_duplicates(session: Session, invoice: Invoice) -> list[Invoice]:
+    """Other live documents with the same number from the same supplier.
+
+    The recipient company is *not* part of the key – one supplier's document
+    belongs to exactly one of our companies, so a second copy anywhere (even
+    under another company) is precisely the error worth catching. Matching
+    uses normalized values: separators and case in the number, case,
+    diacritics and legal-form suffixes in the supplier name.
+    """
+    number = normalize_document_number(invoice.invoice_number)
+    if not number:
+        return []
+    candidates = session.exec(
+        select(Invoice)
+        .where(
+            col(Invoice.id) != invoice.id,
+            func.regexp_replace(
+                func.lower(Invoice.invoice_number), "[^a-z0-9]", "", "g"
+            )
+            == number,
+        )
+        .order_by(col(Invoice.created_at).asc())
+    ).all()
+    ico = normalize_supplier_ico(invoice.supplier_ico)
+    name = normalize_supplier_name(invoice.supplier_name)
+    duplicates = []
+    for other in candidates:
+        other_ico = normalize_supplier_ico(other.supplier_ico)
+        if ico and other_ico:
+            if ico != other_ico:
+                continue
+        elif not name or normalize_supplier_name(other.supplier_name) != name:
+            continue
+        duplicates.append(other)
+    return duplicates
+
+
+def blocking_duplicates(session: Session, invoice: Invoice) -> list[Invoice]:
+    """Duplicates already approved for (or through) the export."""
+    return [
+        other
+        for other in find_duplicates(session, invoice)
+        if InvoiceState(other.state) in DUPLICATE_BLOCKING_STATES
+    ]
+
+
+def duplicate_detail(duplicates: list[Invoice]) -> str:
+    """Human-readable list for warnings: file name and date, newest detail."""
+    return ", ".join(
+        f"{item.original_filename}"
+        f" ({(item.created_at or get_datetime_utc()):%d.%m.%Y %H:%M})"
+        for item in duplicates[:3]
+    ) + (" …" if len(duplicates) > 3 else "")
 
 
 def assert_approvable(session: Session, invoice: Invoice) -> None:
@@ -319,6 +400,11 @@ def assert_approvable(session: Session, invoice: Invoice) -> None:
     if missing:
         raise ApprovalNotAllowedError(
             "errors.approvalMissingDates|" + ",".join(missing)
+        )
+    blocking = blocking_duplicates(session, invoice)
+    if blocking:
+        raise DuplicateInvoiceError(
+            f"errors.duplicate_approved|{duplicate_detail(blocking)}"
         )
 
 
@@ -345,7 +431,38 @@ def assign_company(
     return invoice
 
 
-def approve(session: Session, invoice: Invoice, *, user: User) -> Invoice:
+def replace_duplicates(session: Session, invoice: Invoice, *, user: User) -> None:
+    """Drop the approved copies this document is meant to replace.
+
+    Used when a user re-scanned an invoice that is already waiting for the
+    import: the newer record wins, the older ones are deleted. A duplicate
+    that has already been imported is locked and stays – approving a second
+    copy would double-book it, so nothing is deleted and the caller is told.
+    """
+    blocking = blocking_duplicates(session, invoice)
+    imported = [
+        item for item in blocking if InvoiceState(item.state) is InvoiceState.EXPORTED
+    ]
+    if imported:
+        raise DuplicateInvoiceError(
+            f"errors.duplicate_of_exported|{duplicate_detail(imported)}"
+        )
+    for other in blocking:
+        delete_invoice(session, other, user=user)
+        log_audit(
+            session,
+            "duplicate_replaced",
+            invoice=invoice,
+            user=user,
+            details={"replaced": other.original_filename},
+        )
+
+
+def approve(
+    session: Session, invoice: Invoice, *, user: User, delete_duplicates: bool = False
+) -> Invoice:
+    if delete_duplicates:
+        replace_duplicates(session, invoice, user=user)
     assert_approvable(session, invoice)
     invoice.approved_by_id = user.id
     invoice.approved_at = get_datetime_utc()
@@ -614,7 +731,25 @@ def update_search_vector(session: Session, invoice: Invoice) -> None:
 def to_public(session: Session, invoice: Invoice) -> InvoicePublic:
     public = InvoicePublic.model_validate(invoice, from_attributes=True)
     public.can_delete = InvoiceState(invoice.state) in DELETABLE_STATES
-    public.queue_reasons = queue_reasons(session, invoice)
+    duplicates = find_duplicates(session, invoice)
+    public.queue_reasons = queue_reasons(session, invoice, duplicates=duplicates)
+    public.duplicates = [
+        InvoiceDuplicateHint(
+            id=other.id,
+            original_filename=other.original_filename,
+            invoice_number=other.invoice_number,
+            state=other.state,
+            created_at=other.created_at,
+            recipient_company_name=(
+                session.get(RecipientCompany, other.recipient_company_id).name
+                if other.recipient_company_id
+                and session.get(RecipientCompany, other.recipient_company_id)
+                else None
+            ),
+            approved=InvoiceState(other.state) in DUPLICATE_BLOCKING_STATES,
+        )
+        for other in duplicates
+    ]
     for attr, user_id in (
         ("uploaded_by", invoice.uploaded_by_id),
         ("approved_by", invoice.approved_by_id),

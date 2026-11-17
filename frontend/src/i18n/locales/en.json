@@ -164,7 +164,12 @@
     "accountsPanel": "Bank accounts",
     "accountsNone": "no account",
     "requeueMenuItem": "Queue for import again",
-    "requeued": "The document was queued for import again"
+    "requeued": "The document was queued for import again",
+    "duplicateTitle": "Possible duplicate",
+    "duplicateText": "The same document number from this supplier already exists:",
+    "duplicateApproveText": "This document has the same number as one already approved for import. Approving deletes the older records – only this one stays.",
+    "duplicateLockedText": "The same document is already imported in the accounting system. The duplicate cannot be approved and the original cannot be deleted – delete this record or check the document number.",
+    "duplicateApproveButton": "Approve and delete the original"
   },
   "companies": {
     "title": "Our companies",
@@ -268,7 +273,8 @@
       "missingIssueDate": "Issue date missing",
       "missingDueDate": "Due date missing",
       "missingTaxDate": "Tax supply date missing",
-      "export_in_progress": "The accounting connector is sending the document now"
+      "export_in_progress": "The accounting connector is sending the document now",
+      "duplicate": "Same document number already exists: {{detail}}"
     },
     "colAction": "Actions"
   },
@@ -299,7 +305,9 @@
     "supplier_not_found": "Supplier not found",
     "dateRequired": "A document needs the issue, due and tax supply dates (missing: {{detail}})",
     "approvalMissingDates": "The document cannot be approved without the issue, due and tax supply dates (missing: {{detail}})",
-    "approval_in_progress": "The document is being sent to the accounting system – revoke the confirmation or wait for it to finish"
+    "approval_in_progress": "The document is being sent to the accounting system – revoke the confirmation or wait for it to finish",
+    "duplicate_approved": "Cannot approve – an approved document with the same number already exists: {{detail}}",
+    "duplicate_of_exported": "The same document is already imported: {{detail}}"
   },
   "login": {
     "title": "Log in",

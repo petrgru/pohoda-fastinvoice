@@ -164,7 +164,12 @@
     "accountsPanel": "Bankovní účty",
     "accountsNone": "žádný účet",
     "requeueMenuItem": "Znovu zařadit k importu",
-    "requeued": "Doklad byl znovu zařazen k importu"
+    "requeued": "Doklad byl znovu zařazen k importu",
+    "duplicateTitle": "Může jít o duplikát",
+    "duplicateText": "Stejné číslo dokladu od stejného dodavatele už v systému existuje:",
+    "duplicateApproveText": "Tento doklad má shodné číslo jako doklad už schválený k importu. Schválením se starší záznamy smažou – v systému zůstane jen tento.",
+    "duplicateLockedText": "Stejný doklad je už importovaný v účetním systému. Duplikát nelze schválit a originál nelze smazat – smažte tento záznam, nebo zkontrolujte číslo dokladu.",
+    "duplicateApproveButton": "Schválit a smazat originál"
   },
   "companies": {
     "title": "Naše firmy",
@@ -268,7 +273,8 @@
       "missingIssueDate": "Chybí datum vystavení",
       "missingDueDate": "Chybí datum splatnosti",
       "missingTaxDate": "Chybí datum zdanitelného plnění",
-      "export_in_progress": "Doklad právě odesílá účetní konektor"
+      "export_in_progress": "Doklad právě odesílá účetní konektor",
+      "duplicate": "Stejné číslo dokladu už existuje: {{detail}}"
     },
     "colAction": "Akce"
   },
@@ -299,7 +305,9 @@
     "supplier_not_found": "Dodavatel nenalezen",
     "dateRequired": "Doklad musí mít datum vystavení, splatnosti i zdanitelného plnění (chybí: {{detail}})",
     "approvalMissingDates": "Doklad nelze schválit bez data vystavení, splatnosti a zdanitelného plnění (chybí: {{detail}})",
-    "approval_in_progress": "Doklad právě odesílá do účetního systému – potvrzení zrušte nebo počkejte na dokončení"
+    "approval_in_progress": "Doklad právě odesílá do účetního systému – potvrzení zrušte nebo počkejte na dokončení",
+    "duplicate_approved": "Doklad nelze schválit – už existuje schválený doklad se stejným číslem: {{detail}}",
+    "duplicate_of_exported": "Stejný doklad je už importovaný: {{detail}}"
   },
   "login": {
     "title": "Přihlášení",

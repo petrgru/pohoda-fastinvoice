@@ -667,13 +667,21 @@ export class InvoicesService {
      * Approve Invoice
      *
      * Confirm the import: switches the invoice into the export queue.
+     *
+     * ``delete_duplicates`` explicitly replaces documents with the same number
+     * from the same supplier that are already approved – the user has verified
+     * this record is the better copy of the very same document.
      */
     public static approveInvoice<ThrowOnError extends boolean = true>(options: Options<invoicesApproveInvoiceData, ThrowOnError>) {
         return (options.client ?? client).post<invoicesApproveInvoiceResponses, invoicesApproveInvoiceErrors, ThrowOnError>({
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
             url: '/api/v1/invoices/{invoice_id}/approve',
-            ...options
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
         });
     }
     

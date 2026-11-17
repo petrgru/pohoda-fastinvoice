@@ -164,7 +164,12 @@
     "accountsPanel": "Bankverbindungen",
     "accountsNone": "kein Konto",
     "requeueMenuItem": "Erneut zum Import einreihen",
-    "requeued": "Der Beleg wurde erneut zum Import eingereiht"
+    "requeued": "Der Beleg wurde erneut zum Import eingereiht",
+    "duplicateTitle": "Mögliches Duplikat",
+    "duplicateText": "Die gleiche Belegnummer desselben Lieferanten existiert bereits:",
+    "duplicateApproveText": "Dieser Beleg hat dieselbe Nummer wie ein bereits zum Import genehmigter Beleg. Bei der Genehmigung werden die älteren Datensätze gelöscht – nur dieser bleibt erhalten.",
+    "duplicateLockedText": "Der gleiche Beleg ist bereits im Buchhaltungssystem importiert. Das Duplikat kann nicht genehmigt und das Original nicht gelöscht werden – löschen Sie diesen Datensatz oder prüfen Sie die Belegnummer.",
+    "duplicateApproveButton": "Genehmigen und Original löschen"
   },
   "companies": {
     "title": "Unsere Firmen",
@@ -268,7 +273,8 @@
       "missingIssueDate": "Ausstellungsdatum fehlt",
       "missingDueDate": "Fälligkeitsdatum fehlt",
       "missingTaxDate": "Datum der Steuerleistung fehlt",
-      "export_in_progress": "Der Buchungs-Konnektor sendet gerade den Beleg"
+      "export_in_progress": "Der Buchungs-Konnektor sendet gerade den Beleg",
+      "duplicate": "Gleiche Belegnummer existiert bereits: {{detail}}"
     },
     "colAction": "Aktionen"
   },
@@ -299,7 +305,9 @@
     "supplier_not_found": "Lieferant nicht gefunden",
     "dateRequired": "Das Dokument braucht Ausstellungs-, Fälligkeits- und Leistungsdatum (fehlt: {{detail}})",
     "approvalMissingDates": "Ohne Ausstellungs-, Fälligkeits- und Leistungsdatum kann der Beleg nicht genehmigt werden (fehlt: {{detail}})",
-    "approval_in_progress": "Der Beleg wird gerade an das Buchhaltungssystem gesendet – Bestätigung widerrufen oder auf Abschluss warten"
+    "approval_in_progress": "Der Beleg wird gerade an das Buchhaltungssystem gesendet – Bestätigung widerrufen oder auf Abschluss warten",
+    "duplicate_approved": "Genehmigung nicht möglich – ein Beleg mit derselben Nummer ist bereits genehmigt: {{detail}}",
+    "duplicate_of_exported": "Derselbe Beleg ist bereits importiert: {{detail}}"
   },
   "login": {
     "title": "Anmeldung",

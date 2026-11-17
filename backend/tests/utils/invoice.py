@@ -131,7 +131,9 @@ def create_invoice(
         "file_size": 1024,
         "file_hash": digest,
         "state": state.value,
-        "invoice_number": "2024000123",
+        # unique by default – otherwise any two factory invoices would look
+        # like duplicates of each other to the duplicate detection
+        "invoice_number": f"2024{digest[:8]}",
         "supplier_name": "Test Supplier s.r.o.",
         "supplier_ico": "47123737",
         "issue_date": date(2024, 3, 1),
