@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import EmailStr, field_validator
-from sqlalchemy import JSON, Column, Index, Text, UniqueConstraint
+from sqlalchemy import JSON, Column, Index, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -46,6 +46,7 @@ class UserUpdate(SQLModel):
 class UserUpdateMe(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=255)
+    invoice_columns: list[str] | None = Field(default=None, max_length=16)
 
 
 class UpdatePassword(SQLModel):
@@ -58,12 +59,15 @@ class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
+    # invoice list columns the user wants to see (None = all)
+    invoice_columns: list[str] | None = Field(default=None, sa_column=Column(JSON))
 
 
 # Properties to return via API, id is always required
 class UserPublic(UserBase):
     id: uuid.UUID
     created_at: datetime | None = None
+    invoice_columns: list[str] | None = None
 
 
 class UsersPublic(SQLModel):
@@ -178,6 +182,15 @@ def normalize_iban(value: str) -> str:
     return re.sub(r"\s+", "", value).upper()
 
 
+class PaymentMethod(str, enum.Enum):  # noqa: UP042 - str mixin needed for DB values
+    """How the invoice is (or will be) settled."""
+
+    SPLATNA = "splatna"  # not yet paid, has a due date
+    ZAPLACENA = "zaplacena"
+    INKASEM = "inkasem"
+    HOTOVE = "hotove"
+
+
 class InvoiceState(str, enum.Enum):  # noqa: UP042 - str mixin needed for DB values
     """Workflow states of an invoice.
 
@@ -210,6 +223,7 @@ class RecipientCompanyBase(SQLModel):
     dic: str | None = Field(default=None, max_length=15)
     address: str | None = Field(default=None, max_length=255)
     bank_account: str | None = Field(default=None, max_length=40)
+    email: str | None = Field(default=None, max_length=255)
     note: str | None = Field(default=None, max_length=255)
     is_active: bool = True
 
@@ -250,6 +264,12 @@ class RecipientCompanyBase(SQLModel):
         if _parse_bank_account(account) is None:
             raise ValueError("Neplatný formát čísla účtu")
         return account
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str | None) -> str | None:
+        value = (value or "").strip()
+        return value or None
 
 
 class BankAccountBase(SQLModel):
@@ -373,6 +393,7 @@ class RecipientCompanyUpdate(SQLModel):
     address: str | None = Field(default=None, max_length=255)
     bank_account: str | None = Field(default=None, max_length=40)
     bank_accounts: list[BankAccountCreate] | None = None
+    email: str | None = Field(default=None, max_length=255)
     note: str | None = Field(default=None, max_length=255)
     is_active: bool | None = None
 
@@ -473,6 +494,17 @@ class RecipientApiKey(SQLModel, table=True):
     """API key granting the Pohoda connector access to ONE company's export."""
 
     __tablename__ = "recipientapikey"
+    # exactly one active (non-revoked) key per company – regenerating a key
+    # revokes the previous one, the index guards the rule in the DB as well
+    __table_args__ = (
+        Index(
+            "uq_api_key_active_per_company",
+            "recipient_company_id",
+            unique=True,
+            sqlite_where=text("revoked_at IS NULL"),
+            postgresql_where=text("revoked_at IS NULL"),
+        ),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     recipient_company_id: uuid.UUID = Field(
@@ -480,6 +512,9 @@ class RecipientApiKey(SQLModel, table=True):
     )
     label: str = Field(max_length=64)
     key_prefix: str = Field(max_length=16)  # first chars, shown in listings
+    key_suffix: str | None = Field(
+        default=None, max_length=12
+    )  # last chars, shown in listings
     key_hash: str = Field(max_length=64, unique=True, index=True)  # sha256 hex
     created_by_id: uuid.UUID | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL"
@@ -497,6 +532,7 @@ class RecipientApiKeyPublic(SQLModel):
     id: uuid.UUID
     label: str
     key_prefix: str
+    key_suffix: str | None = None
     created_at: datetime | None = None
     last_used_at: datetime | None = None
     revoked_at: datetime | None = None
@@ -538,10 +574,13 @@ class ParsedInvoice(SQLModel):
     recipient_name: str | None = Field(default=None, max_length=255)
     recipient_ico: str | None = None
     recipient_dic: str | None = None
+    supplier_email: str | None = Field(default=None, max_length=255)
     document_type: Literal["invoice", "proforma", "receipt", "other"] | None = None
     issue_date: date | None = None
     delivery_date: date | None = None
     due_date: date | None = None
+    kh_date: date | None = None
+    payment_method: Literal["splatna", "zaplacena", "inkasem", "hotove"] | None = None
     total_price: Decimal | None = None
     total_vat: Decimal | None = None
     total_without_vat: Decimal | None = None
@@ -722,9 +761,13 @@ class Invoice(SQLModel, table=True):
     document_type: str | None = Field(
         default=None, max_length=20
     )  # invoice|proforma|receipt|other
+    supplier_email: str | None = Field(default=None, max_length=255)
     issue_date: date | None = None
     delivery_date: date | None = None
     due_date: date | None = None
+    # control-reporting (kontrolní hlášení) period date; defaults to the tax supply date
+    kh_date: date | None = None
+    payment_method: str | None = Field(default=None, max_length=20)
     total_price: Decimal | None = Field(default=None, max_digits=12, decimal_places=2)
     total_vat: Decimal | None = Field(default=None, max_digits=12, decimal_places=2)
     total_without_vat: Decimal | None = Field(
@@ -752,6 +795,8 @@ class Invoice(SQLModel, table=True):
     )
     approved_at: datetime | None = None
     exported_at: datetime | None = None
+    # document number assigned by the external accounting system on import
+    external_number: str | None = Field(default=None, max_length=64)
     export_batch_ref: str | None = Field(default=None, max_length=64, index=True)
 
     # Full-text search vector (maintained in crud.invoices)
@@ -779,6 +824,14 @@ class Invoice(SQLModel, table=True):
         return InvoiceState(self.state) in DELETABLE_STATES
 
 
+class UserBasic(SQLModel):
+    """Minimum user identity embedded in other resources."""
+
+    id: uuid.UUID
+    full_name: str | None = None
+    email: str | None = None
+
+
 class InvoicePublic(SQLModel):
     """Public representation built via `crud.invoices.to_public()`."""
 
@@ -802,10 +855,13 @@ class InvoicePublic(SQLModel):
     recipient_name: str | None = None
     recipient_ico: str | None = None
     recipient_dic: str | None = None
+    supplier_email: str | None = None
     document_type: str | None = None
     issue_date: date | None = None
     delivery_date: date | None = None
     due_date: date | None = None
+    kh_date: date | None = None
+    payment_method: str | None = None
     total_price: Decimal | None = None
     total_vat: Decimal | None = None
     total_without_vat: Decimal | None = None
@@ -817,9 +873,12 @@ class InvoicePublic(SQLModel):
     recipient_company_id: uuid.UUID | None = None
     company: RecipientCompanyPublic | None = None
     uploaded_by_id: uuid.UUID | None = None
+    uploaded_by: UserBasic | None = None
     approved_by_id: uuid.UUID | None = None
+    approved_by: UserBasic | None = None
     approved_at: datetime | None = None
     exported_at: datetime | None = None
+    external_number: str | None = None
     account_confirmed_at: datetime | None = None
     # Fraud-detection hints: account vs. the parsed document / supplier history
     account_matches_document: bool | None = None
@@ -829,6 +888,22 @@ class InvoicePublic(SQLModel):
     supplier_confirmed_accounts: list[str] | None = None
     can_delete: bool = True
     queue_reasons: list[str] = []
+
+
+class IdCandidate(SQLModel):
+    """One IČO/DIČ-like value found in the document text."""
+
+    value: str
+    entity: str  # "seller" | "buyer" | "unknown"
+    context: str = ""
+    looks_valid: bool = False
+
+
+class IdCandidatesPublic(SQLModel):
+    """Suggested identification numbers for a poorly parsed invoice."""
+
+    ico: list[IdCandidate] = []
+    dic: list[IdCandidate] = []
 
 
 class InvoicesPublic(SQLModel):
@@ -905,6 +980,18 @@ class RecipientCompanyAssign(SQLModel):
     recipient_company_id: uuid.UUID
 
 
+class ExternalStatusUpdate(SQLModel):
+    """Status change reported by an external accounting application.
+
+    ``exported`` requires the document number the external system assigned;
+    ``ready_for_export`` re-queues a failed invoice after its correction.
+    """
+
+    state: Literal["exported", "export_failed", "ready_for_export"]
+    document_number: str | None = Field(default=None, max_length=64)
+    note: str | None = Field(default=None, max_length=255)
+
+
 class InvoiceUpdate(SQLModel):
     """User corrections of parsed fields; recalculation happens in crud."""
 
@@ -918,10 +1005,13 @@ class InvoiceUpdate(SQLModel):
     supplier_bank_account: str | None = Field(default=None, max_length=40)
     supplier_iban: str | None = Field(default=None, max_length=34)
     supplier_bank_accounts: list[SupplierBankAccount] | None = None
+    supplier_email: str | None = Field(default=None, max_length=255)
     document_type: str | None = Field(default=None, max_length=20)
     issue_date: date | None = None
     delivery_date: date | None = None
     due_date: date | None = None
+    kh_date: date | None = None
+    payment_method: str | None = Field(default=None, max_length=20)
     total_price: Decimal | None = Field(default=None, max_digits=12, decimal_places=2)
     total_vat: Decimal | None = Field(default=None, max_digits=12, decimal_places=2)
     total_without_vat: Decimal | None = Field(
@@ -936,6 +1026,19 @@ class InvoiceUpdate(SQLModel):
         if value is None:
             return value
         return RecipientCompanyBase.validate_ico(value)
+
+    @field_validator("payment_method")
+    @classmethod
+    def validate_payment_method(cls, value: str | None) -> str | None:
+        if value in (None, ""):
+            return None
+        return PaymentMethod(value).value
+
+    @field_validator("supplier_email")
+    @classmethod
+    def normalize_email(cls, value: str | None) -> str | None:
+        value = (value or "").strip()
+        return value or None
 
     @field_validator("supplier_dic")
     @classmethod

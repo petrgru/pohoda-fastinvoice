@@ -478,3 +478,29 @@ def test_runtime_config_reports_develop_flag(
     response = client.get("/api/v1/utils/config/", headers=superuser_token_headers)
     assert response.status_code == 200
     assert response.json() == {"develop": True}
+
+
+def test_company_email_roundtrip(
+    client: TestClient, superuser_token_headers: dict[str, str]
+):
+    """The optional company e-mail is stored normalized."""
+    ico = f"{random.randrange(10_000_000, 99_999_999)}"
+    response = client.post(
+        f"{API}",
+        headers=superuser_token_headers,
+        json={
+            "name": f"Mail Co {ico}",
+            "ico": ico,
+            "email": "  Post@Company.CZ  ",
+        },
+    )
+    assert response.status_code == 201
+    company = response.json()
+    assert company["email"] == "Post@Company.CZ"
+
+    response = client.put(
+        f"{API}/{company['id']}",
+        headers=superuser_token_headers,
+        json={"email": ""},
+    )
+    assert response.json()["email"] is None

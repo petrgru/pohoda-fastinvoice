@@ -91,6 +91,8 @@ class Settings(BaseSettings):
     # guided (schema-constrained) decoding can stall on multi-page scans; give
     # that attempt a tighter budget and fall back to plain JSON prompting
     LLM_STRUCTURED_TIMEOUT_SECONDS: int = 150
+    # resume documents left in uploaded/parsing by a server restart on startup
+    REPARSE_ON_STARTUP: bool = True
     # Path to tesseract binary for OCR of scans/photos; None disables OCR.
     TESSERACT_PATH: str | None = "tesseract"
 

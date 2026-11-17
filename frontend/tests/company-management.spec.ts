@@ -19,8 +19,13 @@ test.describe("Company management", () => {
       await row.locator('[data-testid^="company-actions-menu"]').click()
       await page.getByTestId(`company-manage-${company.id}`).click()
 
-      // the creating superuser is listed as an admin member
-      await expect(page.getByText(firstSuperuser)).toBeVisible()
+      // the creating superuser is listed as an admin member (scoped to the
+      // member rows – the sidebar user menu shows the same e-mail)
+      await expect(
+        page
+          .locator('[data-testid^="member-row-"]')
+          .filter({ hasText: firstSuperuser }),
+      ).toBeVisible()
 
       // invite a new editor by e-mail
       await page.getByTestId("manage-member-email").fill(memberEmail)
@@ -32,11 +37,24 @@ test.describe("Company management", () => {
       await page.getByTestId("manage-key-create").click()
       await expect(page.getByTestId("manage-new-key")).toContainText("fik_")
 
-      // revoke it – the row switches to the revoked badge
-      const keyRow = page.locator("[data-testid^='api-key-row-']")
-      await expect(keyRow.first()).toBeVisible()
-      await page.locator("[data-testid^='api-key-revoke-']").first().click()
-      await expect(keyRow.first()).toContainText("Zrušeno")
+      // only one key per company – a new key replaces (deletes) the old one
+      const keyRows = page.locator("[data-testid^='api-key-row-']")
+      await expect(keyRows).toHaveCount(1, { timeout: 15_000 })
+      await page.getByTestId("manage-rotate-key").click()
+      await page.getByTestId("manage-rotate-confirm").click()
+      await expect(page.getByTestId("manage-new-key")).toContainText("fik_")
+      await expect(keyRows).toHaveCount(1, { timeout: 15_000 })
+
+      // revoking deletes the key for good – the create form comes back
+      // (retry: right after the rotation the list may still show the old row)
+      await expect(async () => {
+        const buttons = page.locator("[data-testid^='api-key-revoke-']")
+        if ((await buttons.count()) > 0) {
+          await buttons.first().click()
+        }
+        await expect(keyRows).toHaveCount(0, { timeout: 2_000 })
+      }).toPass({ timeout: 20_000 })
+      await expect(page.getByTestId("manage-key-create")).toBeVisible()
     } finally {
       await deleteCompaniesByName(name)
     }

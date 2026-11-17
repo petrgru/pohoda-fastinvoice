@@ -1,5 +1,6 @@
 import {
   type ColumnDef,
+  columnVisibilityFeature,
   createPaginatedRowModel,
   flexRender,
   type RowData,
@@ -34,6 +35,7 @@ import {
 const dataTableFeatures = tableFeatures({
   rowPaginationFeature,
   paginatedRowModel: createPaginatedRowModel(),
+  columnVisibilityFeature,
 })
 
 export type DataTableFeatures = typeof dataTableFeatures
@@ -41,16 +43,24 @@ export type DataTableFeatures = typeof dataTableFeatures
 interface DataTableProps<TData extends RowData> {
   columns: ColumnDef<DataTableFeatures, TData>[]
   data: TData[]
+  /** Optional column visibility, e.g. from the user's saved preferences. */
+  columnVisibility?: Record<string, boolean>
 }
 
 export function DataTable<TData extends RowData>({
   columns,
   data,
+  columnVisibility,
 }: DataTableProps<TData>) {
   const table = useTable({
     features: dataTableFeatures,
     data,
     columns,
+    // stable ids so removing a row does not shift components (and their
+    // open dialogs) onto the neighbour row
+    getRowId: (originalRow, index) =>
+      (originalRow as { id?: string }).id ?? String(index),
+    initialState: columnVisibility ? { columnVisibility } : undefined,
   })
 
   return (
@@ -78,7 +88,7 @@ export function DataTable<TData extends RowData>({
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id}>
-                {row.getAllCells().map((cell) => (
+                {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>

@@ -1,4 +1,6 @@
 // API helpers for invoice e2e tests (run against the served backend).
+import type { Page } from "@playwright/test"
+
 import { firstSuperuser, firstSuperuserPassword } from "../config"
 
 const apiBase = process.env.VITE_API_URL ?? "http://localhost:8000"
@@ -104,8 +106,17 @@ export const uploadInvoice = async (
   lines: string[],
 ): Promise<{ id: string }> => {
   const form = new FormData()
+  const body = [...lines]
+  // the mandatory dates are part of a tax document – synthesize them unless
+  // the test already provides its own
+  if (!/vystav|vyd[áa]n|issued/i.test(body.join("\n"))) {
+    body.push("Datum vystaveni: 1.1.2025")
+  }
+  if (!/splatn/i.test(body.join("\n"))) {
+    body.push("Datum splatnosti: 31.1.2025")
+  }
   const pdf = makePdfBytes([
-    ...lines,
+    ...body,
     `unique-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   ])
   // the Uint8Array copy normalizes the buffer type for BlobPart
@@ -132,6 +143,9 @@ export const getInvoice = async (
   state: string
   recipient_company_id: string | null
   supplier_bank_account: string | null
+  issue_date: string | null
+  due_date: string | null
+  delivery_date: string | null
 }> => {
   const response = await fetch(`${apiBase}/api/v1/invoices/${invoiceId}`, {
     headers: await authHeaders(),
@@ -146,7 +160,7 @@ export const getInvoice = async (
  *  With a real LLM backend parsing can take tens of seconds. */
 export const waitForParsed = async (
   invoiceId: string,
-  timeoutMs = 60_000,
+  timeoutMs = 120_000,
 ): Promise<{ state: string; recipient_company_id: string | null }> => {
   const attempts = Math.ceil(timeoutMs / 500)
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -174,6 +188,25 @@ export const markInvoiceExported = async (invoiceId: string): Promise<void> => {
   })
   if (!response.ok) {
     throw new Error(`Export result failed: ${await response.text()}`)
+  }
+}
+
+/** Fill the mandatory dates a real document may not carry in a parseable way. */
+export const fillMissingDates = async (invoiceId: string): Promise<void> => {
+  const invoice = await getInvoice(invoiceId)
+  const body: Record<string, string> = {}
+  if (!invoice.issue_date) body.issue_date = "2025-01-02"
+  if (!invoice.delivery_date)
+    body.delivery_date = invoice.issue_date ?? "2025-01-02"
+  if (!invoice.due_date) body.due_date = "2025-01-17"
+  if (Object.keys(body).length === 0) return
+  const response = await fetch(`${apiBase}/api/v1/invoices/${invoiceId}`, {
+    method: "PUT",
+    headers: { ...(await authHeaders()), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw new Error(`Filling dates failed: ${await response.text()}`)
   }
 }
 
@@ -256,4 +289,16 @@ export const getSuppliers = async (
     ico: string | null
     invoice_count: number
   }[]
+}
+
+/** Aborts the eSCL sharing ports so scanner tests don't see a NAPS2 running
+ * on the developer machine. Registered before any mock, which then wins. */
+export const blockScannerSharing = async (page: Page): Promise<void> => {
+  await page.route(
+    (url) =>
+      url.hostname === "localhost" &&
+      Number(url.port) >= 9801 &&
+      Number(url.port) <= 9850,
+    (route) => route.abort(),
+  )
 }

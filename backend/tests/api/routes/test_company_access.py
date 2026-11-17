@@ -222,7 +222,7 @@ def test_company_api_key_scopes_export(
         == 401
     )
 
-    # revoke -> 401, key listed as revoked
+    # revoke -> the key row is deleted
     key_id = created["id"]
     assert (
         client.delete(
@@ -231,10 +231,11 @@ def test_company_api_key_scopes_export(
         ).status_code
         == 200
     )
-    # the revoked key is dead; with no other key it disables the API entirely
+    # the deleted key is dead; with no other key it disables the API entirely
     assert client.get(f"{EXPORT}/queue", headers=key_headers).status_code == 503
     keys = client.get(
         f"/api/v1/companies/{company_a.id}/api-keys",
         headers=superuser_token_headers,
     ).json()
-    assert keys[0]["revoked_at"] is not None
+    # revoked keys are deleted, never listed
+    assert keys == []

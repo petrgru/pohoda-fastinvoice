@@ -4,6 +4,7 @@ from app.api.routes import (
     companies,
     data,
     export,
+    external,
     invoices,
     login,
     private,
@@ -20,6 +21,7 @@ api_router.include_router(utils.router)
 api_router.include_router(companies.router)
 api_router.include_router(invoices.router)
 api_router.include_router(export.router)
+api_router.include_router(external.router)
 api_router.include_router(data.router)
 api_router.include_router(suppliers.router)
 

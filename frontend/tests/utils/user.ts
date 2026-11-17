@@ -12,7 +12,7 @@ export async function signUpNewUser(
   await page.getByTestId("email-input").fill(email)
   await page.getByTestId("password-input").fill(password)
   await page.getByTestId("confirm-password-input").fill(password)
-  await page.getByRole("button", { name: "Sign Up" }).click()
+  await page.getByTestId("signup-button").click()
   await page.goto("/login")
 }
 
@@ -21,15 +21,33 @@ export async function logInUser(page: Page, email: string, password: string) {
 
   await page.getByTestId("email-input").fill(email)
   await page.getByTestId("password-input").fill(password)
-  await page.getByRole("button", { name: "Log In" }).click()
+  await page.getByTestId("login-button").click()
   await page.waitForURL("/")
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
+  await expect(page.getByTestId("user-menu")).toBeVisible()
 }
 
 export async function logOutUser(page: Page) {
   await page.getByTestId("user-menu").click()
-  await page.getByRole("menuitem", { name: "Log out" }).click()
+  await page.getByTestId("logout-menu-item").click()
   await page.goto("/login")
+}
+
+export async function ensureOwnCompany(page: Page) {
+  // a brand-new member is bounced to /companies until they own one –
+  // create one through the app's own API with their session token
+  await page.evaluate(async () => {
+    const token = localStorage.getItem("access_token")
+    const ico = `9${String(Date.now()).slice(-7)}`
+    const response = await fetch("/api/v1/companies/", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: `Test s.r.o. ${ico}`, ico }),
+    })
+    if (!response.ok && response.status !== 409) {
+      throw new Error(await response.text())
+    }
+  })
 }

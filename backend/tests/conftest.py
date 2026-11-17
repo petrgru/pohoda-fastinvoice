@@ -53,6 +53,8 @@ def _ensure_test_database() -> str:
 
 
 os.environ["DATABASE_URL"] = _ensure_test_database()
+# startup recovery must not spawn background parsing threads under pytest
+os.environ.setdefault("REPARSE_ON_STARTUP", "false")
 # ---------------------------------------------------------------------------
 
 import pytest  # noqa: E402

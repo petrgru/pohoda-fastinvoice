@@ -6,6 +6,10 @@ import { useTranslation } from "react-i18next"
 
 import { InvoicesService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import {
+  ColumnPicker,
+  INVOICE_COLUMNS,
+} from "@/components/Invoices/ColumnPicker"
 import { useInvoiceColumns } from "@/components/Invoices/columns"
 import { parsingInProgress } from "@/components/Invoices/polling"
 import UploadInvoice from "@/components/Invoices/UploadInvoice"
@@ -19,6 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useActiveCompany } from "@/hooks/useActiveCompany"
+import useAuth from "@/hooks/useAuth"
 
 const STATE_FILTERS = [
   "all",
@@ -36,9 +42,23 @@ function Invoices() {
   const [search, setSearch] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [state, setState] = useState<string>("all")
+  // the company picker in the header scopes the whole app
+  const { activeCompany } = useActiveCompany()
+  const company = activeCompany?.id
+  // columns saved in the profile (null/undefined = all)
+  const { user } = useAuth()
+  const savedColumns = user?.invoice_columns
+  const columnVisibility = savedColumns
+    ? Object.fromEntries(
+        INVOICE_COLUMNS.map((column) => [
+          column.id,
+          savedColumns.includes(column.id),
+        ]),
+      )
+    : undefined
 
   const { data, isPending } = useQuery({
-    queryKey: ["invoices", searchTerm, state],
+    queryKey: ["invoices", searchTerm, state, company],
     queryFn: async () =>
       (
         await InvoicesService.listInvoices({
@@ -47,6 +67,7 @@ function Invoices() {
             limit: 100,
             q: searchTerm || undefined,
             state: state === "all" ? undefined : state,
+            recipient_company_id: company || undefined,
           },
         })
       ).data,
@@ -59,22 +80,18 @@ function Invoices() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {t("invoices.title")}
-          </h1>
-          <p className="text-muted-foreground">{t("invoices.subtitle")}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" asChild>
-            <a href="/queue" data-testid="queue-link">
-              <ListChecks className="mr-2 size-4" />
-              {t("nav.queue")}
-            </a>
-          </Button>
-          <UploadInvoice />
-        </div>
+      {/* actions float in the corner – they stay put while the list scrolls */}
+      <div
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2"
+        data-testid="invoices-floating-actions"
+      >
+        <Button variant="outline" asChild>
+          <a href="/queue" data-testid="queue-link">
+            <ListChecks className="mr-2 size-4" />
+            {t("nav.queue")}
+          </a>
+        </Button>
+        <UploadInvoice />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -94,6 +111,7 @@ function Invoices() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </form>
+        <ColumnPicker />
         <Select value={state} onValueChange={setState}>
           <SelectTrigger className="w-48" data-testid="state-filter">
             <SelectValue />
@@ -121,7 +139,12 @@ function Invoices() {
           <p className="text-muted-foreground">{t("invoices.emptyHint")}</p>
         </div>
       ) : (
-        <DataTable columns={columns} data={invoices} />
+        <DataTable
+          key={JSON.stringify(columnVisibility ?? "all")}
+          columns={columns}
+          data={invoices}
+          columnVisibility={columnVisibility}
+        />
       )}
     </div>
   )
@@ -130,6 +153,6 @@ function Invoices() {
 export const Route = createFileRoute("/_layout/invoices/")({
   component: Invoices,
   head: () => ({
-    meta: [{ title: "Faktury – Pohoda FastInvoice" }],
+    meta: [{ title: "Doklady – Pohoda FastInvoice" }],
   }),
 })

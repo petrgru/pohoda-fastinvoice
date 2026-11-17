@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useActiveCompany } from "@/hooks/useActiveCompany"
 import { translateServerMessage } from "@/utils"
 
 /** Queue reasons arrive as machine keys ("queue.reason.*[|detail]"). */
@@ -26,11 +27,19 @@ export const displayReason = (reason: string): string =>
 function QueueContent() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const { activeCompany } = useActiveCompany()
   const { data } = useSuspenseQuery({
-    queryKey: ["queue"],
+    queryKey: ["queue", activeCompany?.id ?? null],
     queryFn: async () =>
-      (await InvoicesService.listQueue({ query: { skip: 0, limit: 100 } }))
-        .data,
+      (
+        await InvoicesService.listQueue({
+          query: {
+            skip: 0,
+            limit: 100,
+            recipient_company_id: activeCompany?.id ?? undefined,
+          },
+        })
+      ).data,
     // poll continuously so uploads made in other tabs/views surface promptly;
     // faster while any invoice is still being parsed in the background
     refetchInterval: (query) =>
@@ -105,15 +114,8 @@ function QueueContent() {
 }
 
 function Queue() {
-  const { t } = useTranslation()
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {t("queue.title")}
-        </h1>
-        <p className="text-muted-foreground">{t("queue.subtitle")}</p>
-      </div>
       <Suspense fallback={<PendingItems />}>
         <QueueContent />
       </Suspense>

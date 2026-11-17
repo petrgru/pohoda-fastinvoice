@@ -18,6 +18,21 @@ export const translateServerMessage = (raw: string): string => {
   if (key === "queue.reason.export_failed" && !detail) {
     return i18n.t("queue.reason.export_failed_bare")
   }
+  if (key === "errors.dateRequired" || key === "errors.approvalMissingDates") {
+    const labels = detail
+      .split(",")
+      .map((field) =>
+        i18n.t(
+          {
+            issueDate: "invoice.issueDate",
+            dueDate: "invoice.dueDate",
+            taxDate: "invoice.taxDate",
+          }[field] ?? "common.unknown",
+        ),
+      )
+      .join(", ")
+    return i18n.t(key, { detail: labels })
+  }
   if (!detail) detail = i18n.t("common.unknown")
   return i18n.t(key, { detail, defaultValue: raw })
 }

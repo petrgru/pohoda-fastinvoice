@@ -27,6 +27,7 @@ from pypdf import PdfReader
 
 from app.core.config import settings
 from app.models import (  # noqa: F401 (re-export)
+    IdCandidate,
     ParsedInvoice,
     RecipientCompany,
     VatItem,
@@ -85,6 +86,42 @@ def _ocr_pdf(data: bytes) -> str:
         for page in sorted(tmp_path.glob("page*.png")):
             chunks.append(_ocr_image(page))
         return "\n".join(chunks)
+
+
+def render_pdf_first_page(data: bytes) -> bytes | None:
+    """Render the first page of a PDF to a JPEG, for vision extraction.
+
+    Scanned PDFs reach us with no text layer and no OCR engine is required to
+    be installed, so the raster of the first page is handed to the vision
+    model the same way an uploaded image would be. Returns None when pdftoppm
+    (poppler) is not available or the page cannot be produced.
+    """
+    pdftoppm = shutil.which("pdftoppm")
+    if not pdftoppm:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        pdf_path = tmp_path / "input.pdf"
+        pdf_path.write_bytes(data)
+        # pdftoppm appends .jpg to this prefix ("-singlefile" skips the page number)
+        prefix = tmp_path / "page"
+        conversion = _run(
+            [
+                pdftoppm,
+                "-jpeg",
+                "-jpegopt",
+                "quality=85",
+                "-singlefile",
+                "-r",
+                "150",
+                str(pdf_path),
+                str(prefix),
+            ]
+        )
+        page_path = prefix.with_suffix(".jpg")
+        if conversion.returncode != 0 or not page_path.exists():
+            return None
+        return page_path.read_bytes()
 
 
 def extract_text(data: bytes, content_type: str) -> str:
@@ -203,7 +240,8 @@ def call_llm(
         content: Any = prompt
     else:
         model = settings.LLM_VISION_MODEL or settings.LLM_MODEL
-        data_url = "data:image/jpeg;base64," + base64.b64encode(image).decode()
+        mime = "image/png" if image[:8] == b"\x89PNG\r\n\x1a\n" else "image/jpeg"
+        data_url = f"data:{mime};base64," + base64.b64encode(image).decode()
         content = [
             {"type": "text", "text": prompt},
             {"type": "image_url", "image_url": {"url": data_url}},
@@ -302,9 +340,12 @@ _MERGE_FIELDS = (
     "recipient_ico",
     "recipient_dic",
     "document_type",
+    "supplier_email",
+    "payment_method",
     "issue_date",
     "delivery_date",
     "due_date",
+    "kh_date",
     "total_price",
     "total_vat",
     "total_without_vat",
@@ -440,6 +481,47 @@ def _find_labeled_date(text: str, labels: str) -> date | None:
         re.IGNORECASE,
     )
     return _parse_cz_date(match.group(1)) if match else None
+
+
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
+_PAYMENT_RES = (
+    (re.compile(r"zaplaceno|zaplacena|uhrazen|prijato", re.IGNORECASE), "zaplacena"),
+    (
+        re.compile(r"inkas\w*|příkaz k inkasu|direct debit", re.IGNORECASE),
+        "inkasem",
+    ),
+    (
+        re.compile(r"\bhotov[ěe]\b|v hotovosti|dobírka|\bcash\b", re.IGNORECASE),
+        "hotove",
+    ),
+)
+_DUE_LABEL_RE = re.compile(
+    r"datum\s+splatnosti|splatnost[:.]|due\s+date", re.IGNORECASE
+)
+
+
+def rule_supplier_email(text: str) -> str | None:
+    """The supplier's e-mail – addresses in the buyer block are skipped."""
+    unknown: str | None = None
+    for match in _EMAIL_RE.finditer(text):
+        head = text[max(0, match.start() - 8) : match.start()]
+        if head.rstrip().endswith(("//", "/")):
+            continue  # part of a www address
+        value = match.group(0).rstrip(".").lower()
+        entity = _id_entity(text, match.start())
+        if entity == "seller":
+            return value
+        if entity == "unknown" and unknown is None:
+            unknown = value
+    return unknown
+
+
+def rule_payment(text: str) -> str | None:
+    """How the document says the invoice is settled (None when unclear)."""
+    for pattern, value in _PAYMENT_RES:
+        if pattern.search(text):
+            return value
+    return "splatna" if _DUE_LABEL_RE.search(text) else None
 
 
 def _amount_value(raw: str) -> float:
@@ -852,13 +934,25 @@ def rule_extract(text: str) -> ParsedInvoice | None:
             "recipient_ico": recipient_ico,
             "recipient_dic": recipient_dic,
             "document_type": document_type,
+            "supplier_email": rule_supplier_email(text),
+            "payment_method": rule_payment(text),
             "issue_date": _find_labeled_date(
                 text,
-                r"datum\s+vydán[íy]|vydáno|issued|datum(?!.{0,14}(?:splatn|dodán))",
+                r"datum\s+vydán[íy]|vydáno|vystaven|issued"
+                r"|datum(?!.{0,16}(?:splatn|dodán|pln[ěe]))",
             ),
-            "delivery_date": _find_labeled_date(text, r"datum\s+dodán[íy]|dodáno"),
+            "delivery_date": _find_labeled_date(
+                text,
+                r"datum\s+zdaniteln[ée]ho\s+pln[ěe]n[íy]"
+                r"|datum\s+(?:uskutečnění\s+)?pln[ěe]n[íy]"
+                r"|zdaniteln[ée]ho\s+pln[ěe]n|duzp"
+                r"|datum\s+dodán[íy]|dodáno",
+            ),
             "due_date": _find_labeled_date(
                 text, r"datum\s+splatnosti|splatnost[:.]|due\s+date"
+            ),
+            "kh_date": _find_labeled_date(
+                text, r"kontroln[íi]\s+hl[áa][šs]en[íy]|\bkh\b"
             ),
             "total_price": str(total_price) if total_price is not None else None,
             "total_vat": vat_total,
@@ -906,6 +1000,12 @@ def normalize_parsed(parsed: ParsedInvoice) -> ParsedInvoice:
         )
     if parsed.supplier_iban:
         parsed.supplier_iban = normalize_iban(parsed.supplier_iban)
+    # Czech practice: no separate tax supply date on the document means DUZP
+    # is the day of issue; the control-reporting date then follows DUZP
+    if parsed.delivery_date is None:
+        parsed.delivery_date = parsed.issue_date
+    if parsed.kh_date is None:
+        parsed.kh_date = parsed.delivery_date
     if parsed.supplier_bank_accounts:
         # invoices (e.g. from Festo) list several payment accounts – keep the
         # main one also in the single-value fields for the Pohoda export
@@ -987,3 +1087,80 @@ def parse_dates_iso(value: str | None) -> date | None:
             except ValueError:
                 return None
     return None
+
+
+_BARE_ICO_RE = re.compile(r"(?<![\dA-Za-z./-])(\d{8})(?!\d)")
+_CAND_DIC_RE = re.compile(r"\b((?:CZ\s?\d{10})|[A-Z]{2}\d{8,12})(?![\dA-Za-z])")
+_ENTITY_RANK = {"seller": 0, "unknown": 1, "buyer": 2}
+
+
+def _mod11_ok(value: str) -> bool:
+    """Informational Czech IČO check digit – never used to reject a value."""
+    if not value.isdigit() or len(value) != 8:
+        return False
+    total = sum(
+        int(d) * w for d, w in zip(value[:7], (8, 7, 6, 5, 4, 3, 2), strict=True)
+    )
+    return int(value[7]) == (11 - total % 11) % 11
+
+
+def _id_entity(text: str, start: int) -> str:
+    """Which party (seller/buyer) an identification number belongs to."""
+    window = text[max(0, start - 320) : start]
+    buyer = list(_BUYER_LABEL_RE.finditer(window))
+    seller = list(_SELLER_LABEL_RE.finditer(window))
+    if buyer and (not seller or buyer[-1].start() > seller[-1].start()):
+        return "buyer"
+    return "seller" if seller else "unknown"
+
+
+def _id_context(text: str, start: int, end: int) -> str:
+    snippet = text[max(0, start - 30) : end + 30]
+    return re.sub(r"\s+", " ", snippet).strip()[:90]
+
+
+def id_candidates(text: str) -> dict[str, list[IdCandidate]]:
+    """Every IČO/DIČ-like value on the document, tagged with its party guess.
+
+    Numbers inside IBANs or bank-account rows are skipped; the mod-11 flag only
+    orders the suggestions (IČ is not required to pass it).
+    """
+    excluded: list[range] = []
+    for rex in (_BANK_ROW_RE, _IBAN_RE):
+        excluded.extend(range(m.start(), m.end()) for m in rex.finditer(text))
+
+    def _inside(start: int, end: int) -> bool:
+        return any(start in span or end - 1 in span for span in excluded)
+
+    ico: dict[str, IdCandidate] = {}
+    for match in _BARE_ICO_RE.finditer(text):
+        if _inside(match.start(), match.end()):
+            continue
+        value = match.group(1)
+        if value not in ico:
+            ico[value] = IdCandidate(
+                value=value,
+                entity=_id_entity(text, match.start()),
+                context=_id_context(text, match.start(), match.end()),
+                looks_valid=_mod11_ok(value),
+            )
+    dic: dict[str, IdCandidate] = {}
+    for match in _CAND_DIC_RE.finditer(text):
+        if _inside(match.start(), match.end()):
+            continue
+        value = match.group(1).replace(" ", "").upper()
+        if value not in dic:
+            dic[value] = IdCandidate(
+                value=value,
+                entity=_id_entity(text, match.start()),
+                context=_id_context(text, match.start(), match.end()),
+                looks_valid=value.startswith("CZ") and value[2:].isdigit(),
+            )
+
+    def rank(item: IdCandidate) -> tuple[int, bool, str]:
+        return _ENTITY_RANK[item.entity], not item.looks_valid, item.value
+
+    return {
+        "ico": sorted(ico.values(), key=rank),
+        "dic": sorted(dic.values(), key=rank),
+    }

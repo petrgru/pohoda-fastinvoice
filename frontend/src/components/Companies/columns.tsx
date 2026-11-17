@@ -37,6 +37,7 @@ export function useCompanyColumns() {
         header: t("companies.colAddress"),
         cell: ({ row }) => row.original.address ?? "—",
       },
+      { accessorKey: "email", header: t("companies.colEmail") },
       {
         accessorKey: "bank_account",
         header: t("companies.colAccount"),

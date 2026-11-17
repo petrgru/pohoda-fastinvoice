@@ -5,8 +5,6 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.models import (
-    Invoice,
-    InvoiceState,
     Supplier,
     User,
 )
@@ -20,7 +18,9 @@ def _supplier(session: Session, **overrides: object) -> Supplier:
     data: dict = {
         "name": f"Big Supplier {uuid4().hex[:6]} a.s.",
         "ico": str(random.randrange(10000000, 99999999)),
-        "bank_accounts": [{"account": "123456789/0100", "iban": None, "confirmed": False}],
+        "bank_accounts": [
+            {"account": "123456789/0100", "iban": None, "confirmed": False}
+        ],
     }
     data.update(overrides)
     supplier = Supplier(**data)
@@ -42,7 +42,9 @@ def test_list_suppliers_with_counts(
     assert rows[supplier.ico]["invoice_count"] == 1
 
 
-def test_update_supplier(client: TestClient, superuser_token_headers: dict[str, str], db: Session):
+def test_update_supplier(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+):
     supplier = _supplier(db)
     response = client.put(
         f"{API}/{supplier.id}",
@@ -122,7 +124,10 @@ def test_account_change_requires_confirmation_then_confirms(
         db,
         supplier_ico=ico,
         supplier_bank_account=document_account,
-        parsed_snapshot={"supplier_bank_account": document_account, "supplier_ico": ico},
+        parsed_snapshot={
+            "supplier_bank_account": document_account,
+            "supplier_ico": ico,
+        },
     )
     account_integrity.upsert_from_invoice(db, invoice)
     db.commit()
@@ -161,12 +166,18 @@ def test_account_change_requires_confirmation_then_confirms(
         db,
         supplier_ico=ico,
         supplier_bank_account="555555555/0300",
-        parsed_snapshot={"supplier_bank_account": "555555555/0300", "supplier_ico": ico},
+        parsed_snapshot={
+            "supplier_bank_account": "555555555/0300",
+            "supplier_ico": ico,
+        },
     )
     response = client.put(
         f"/api/v1/invoices/{later.id}",
         headers=superuser_token_headers,
-        json={"supplier_bank_account": "555555555/0300", "invoice_number": "2024000999"},
+        json={
+            "supplier_bank_account": "555555555/0300",
+            "invoice_number": "2024000999",
+        },
     )
     assert response.status_code == 200
 

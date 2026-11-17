@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   Building2,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Plus,
   RotateCcw,
   X,
@@ -19,9 +21,11 @@ import { z } from "zod"
 import { CompaniesService, InvoicesService } from "@/client"
 import { AddCompanyForInvoice } from "@/components/Invoices/AddCompanyForInvoice"
 import { formatPrice } from "@/components/Invoices/columns"
+import { IdCandidates } from "@/components/Invoices/IdCandidates"
 import { InvoiceActionsMenu } from "@/components/Invoices/InvoiceActionsMenu"
 import { InvoicePreview } from "@/components/Invoices/InvoicePreview"
 import { StateBadge } from "@/components/Invoices/StateBadge"
+import { recalcVatRow, type VatField } from "@/components/Invoices/vatMath"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -73,6 +77,15 @@ function isAccountConfirmConflict(err: unknown): boolean {
   )
 }
 
+const PAYMENT_METHODS = ["splatna", "zaplacena", "inkasem", "hotove"] as const
+
+/** "1 234,56" → "1234.56" for the API's Decimal fields. */
+function amountToDecimal(value: string): string {
+  const cleaned = (value || "").replace(/\s/g, "").replace(",", ".")
+  const parsed = Number(cleaned)
+  return Number.isFinite(parsed) ? parsed.toFixed(2) : "0.00"
+}
+
 type FormData = {
   invoice_number?: string
   supplier_name?: string
@@ -81,8 +94,19 @@ type FormData = {
   supplier_bank_account?: string
   supplier_iban?: string
   supplier_bank_accounts?: { account: string; iban: string }[]
+  supplier_email?: string
   issue_date?: string
   due_date?: string
+  delivery_date?: string
+  kh_date?: string
+  payment_method?: string
+  vat_rows?: {
+    vat_rate: string
+    base_price: string
+    tax_price: string
+    total_price: string
+    currency: string
+  }[]
   total_price?: string
   total_vat?: string
   total_without_vat?: string
@@ -90,7 +114,7 @@ type FormData = {
 
 export const Route = createFileRoute("/_layout/invoices/$invoiceId")({
   component: InvoiceDetail,
-  head: () => ({ meta: [{ title: "Faktura – Pohoda FastInvoice" }] }),
+  head: () => ({ meta: [{ title: "Doklad – Pohoda FastInvoice" }] }),
 })
 
 function InvoiceDetail() {
@@ -99,31 +123,6 @@ function InvoiceDetail() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
-
-  const formSchema = useMemo(
-    () =>
-      z.object({
-        invoice_number: z.string().optional(),
-        supplier_name: z.string().optional(),
-        supplier_ico: z
-          .string()
-          .regex(/^\d{8}$/, t("invoice.icoInvalid"))
-          .or(z.literal(""))
-          .optional(),
-        supplier_dic: z.string().optional(),
-        supplier_bank_account: z.string().optional(),
-        supplier_iban: z.string().optional(),
-        supplier_bank_accounts: z
-          .array(z.object({ account: z.string(), iban: z.string() }))
-          .optional(),
-        issue_date: z.string().optional(),
-        due_date: z.string().optional(),
-        total_price: z.string().optional(),
-        total_vat: z.string().optional(),
-        total_without_vat: z.string().optional(),
-      }),
-    [t],
-  )
 
   const { data: invoice } = useQuery({
     queryKey: ["invoice", invoiceId],
@@ -138,6 +137,71 @@ function InvoiceDetail() {
         ? 2000
         : false,
   })
+  const formSchema = useMemo(
+    () =>
+      z
+        .object({
+          invoice_number: z.string().optional(),
+          supplier_name: z.string().optional(),
+          supplier_ico: z
+            .string()
+            .regex(/^\d{8}$/, t("invoice.icoInvalid"))
+            .or(z.literal(""))
+            .optional(),
+          supplier_dic: z.string().optional(),
+          supplier_bank_account: z.string().optional(),
+          supplier_iban: z.string().optional(),
+          supplier_bank_accounts: z
+            .array(z.object({ account: z.string(), iban: z.string() }))
+            .optional(),
+          supplier_email: z.string().optional(),
+          issue_date: z.string().optional(),
+          due_date: z.string().optional(),
+          delivery_date: z.string().optional(),
+          kh_date: z.string().optional(),
+          payment_method: z.string().optional(),
+          vat_rows: z
+            .array(
+              z.object({
+                vat_rate: z.string(),
+                base_price: z
+                  .string()
+                  .regex(/^\d{1,12}([.,]\d{1,2})?$/, t("invoice.errAmount"))
+                  .or(z.literal("")),
+                tax_price: z
+                  .string()
+                  .regex(/^\d{1,12}([.,]\d{1,2})?$/, t("invoice.errAmount"))
+                  .or(z.literal("")),
+                total_price: z
+                  .string()
+                  .regex(/^\d{1,12}([.,]\d{1,2})?$/, t("invoice.errAmount"))
+                  .or(z.literal("")),
+                currency: z.string(),
+              }),
+            )
+            .optional(),
+          total_price: z.string().optional(),
+          total_vat: z.string().optional(),
+          total_without_vat: z.string().optional(),
+        })
+        // a tax document must carry the three key dates (the backend
+        // enforces the same on save); proforma and receipts are exempt
+        .superRefine((value, ctx) => {
+          if (invoice?.document_type && invoice.document_type !== "invoice")
+            return
+          for (const field of ["issue_date", "due_date", "delivery_date"]) {
+            if (!value[field as "issue_date"]) {
+              ctx.addIssue({
+                code: "custom",
+                message: t("invoice.dateRequired"),
+                path: [field],
+              })
+            }
+          }
+        }),
+    [t, invoice?.document_type],
+  )
+
   const { data: companies } = useQuery({
     queryKey: ["companies"],
     queryFn: async () =>
@@ -162,14 +226,45 @@ function InvoiceDetail() {
           iban: row.iban ?? "",
         }),
       ),
+      supplier_email: invoice?.supplier_email ?? "",
       issue_date: invoice?.issue_date ?? "",
       due_date: invoice?.due_date ?? "",
+      delivery_date: invoice?.delivery_date ?? "",
+      kh_date: invoice?.kh_date ?? "",
+      payment_method: invoice?.payment_method ?? "",
+      vat_rows: (invoice?.vat_items ?? []).map((item) => ({
+        vat_rate: item.vat_rate ?? "",
+        base_price: item.base_price ?? "",
+        tax_price: item.tax_price ?? "",
+        total_price: item.total_price ?? "",
+        currency: item.currency ?? "",
+      })),
       total_price: invoice?.total_price ?? "",
       total_vat: invoice?.total_vat ?? "",
       total_without_vat: invoice?.total_without_vat ?? "",
     },
   })
 
+  // editing any cell of a VAT line recalculates the rest of the line
+  const onVatCellChange = (
+    index: number,
+    cell: VatField,
+    onChange: (value: string) => void,
+    value: string,
+  ) => {
+    onChange(value)
+    const current = (form.getValues("vat_rows") ?? [])[index]
+    if (!current) return
+    form.setValue(
+      `vat_rows.${index}`,
+      recalcVatRow({ ...current, [cell]: value }, cell),
+      { shouldDirty: true },
+    )
+  }
+  const vatRowFields = useFieldArray({
+    control: form.control,
+    name: "vat_rows",
+  })
   const supplierAccounts = useFieldArray({
     control: form.control,
     name: "supplier_bank_accounts",
@@ -179,9 +274,16 @@ function InvoiceDetail() {
     queryClient.invalidateQueries({ queryKey: ["invoice", invoiceId] })
     queryClient.invalidateQueries({ queryKey: ["invoices"] })
     queryClient.invalidateQueries({ queryKey: ["queue"] })
+    // companies created from this invoice must show up in the header switcher
+    queryClient.invalidateQueries({ queryKey: ["companies"] })
   }
 
   // form awaiting the user's "the account is really correct" confirmation
+  // the account panel is collapsed unless a mismatch was detected; a manual
+  // toggle wins over the automatic choice
+  const [accountsOpenOverride, setAccountsOpenOverride] = useState<
+    boolean | null
+  >(null)
   const [accountConfirmData, setAccountConfirmData] = useState<FormData | null>(
     null,
   )
@@ -190,6 +292,32 @@ function InvoiceDetail() {
     mutationFn: ({ data, confirm }: { data: FormData; confirm: boolean }) => {
       const body: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(data)) {
+        if (key === "vat_rows") {
+          const rows = ((value as FormData["vat_rows"]) ?? [])
+            .filter(
+              (row) =>
+                row.base_price.trim() ||
+                row.tax_price.trim() ||
+                row.vat_rate.trim(),
+            )
+            .map((row) => {
+              const base = Number(amountToDecimal(row.base_price))
+              const tax = Number(amountToDecimal(row.tax_price))
+              return {
+                vat_rate: row.vat_rate.trim() || null,
+                base_price: amountToDecimal(row.base_price),
+                tax_price: amountToDecimal(row.tax_price),
+                total_price: row.total_price.trim()
+                  ? amountToDecimal(row.total_price)
+                  : (base + tax).toFixed(2),
+                currency: row.currency.trim() || null,
+              }
+            })
+          if (rows.length > 0 || (invoice?.vat_items?.length ?? 0) > 0) {
+            body.vat_items = rows
+          }
+          continue
+        }
         if (key === "supplier_bank_accounts") {
           body[key] = (
             (value as FormData["supplier_bank_accounts"]) ?? []
@@ -263,12 +391,36 @@ function InvoiceDetail() {
     (invoice.recipient_ico
       ? `${t("invoice.recipientFallback")} (IČO ${invoice.recipient_ico})`
       : null)
+  const accountsMismatch =
+    invoice.account_matches_document === false ||
+    invoice.account_matches_supplier === false
+  const accountsOpen = accountsOpenOverride ?? accountsMismatch
+  const accountSummary = (() => {
+    const values = [
+      form.watch("supplier_bank_account"),
+      ...supplierAccounts.fields.map((row) => row.account),
+    ]
+      .map((value) => (value ?? "").trim())
+      .filter(Boolean)
+    if (values.length === 0) return t("invoice.accountsNone")
+    return values.length > 1
+      ? `${values[0]} (+${values.length - 1})`
+      : values[0]
+  })()
   const companyAccounts = (
     invoice.company?.bank_accounts?.length
       ? invoice.company.bank_accounts.map((row) => row.account ?? row.iban)
       : [invoice.company?.bank_account]
   ).filter(Boolean)
   const vatRows = invoice.vat_items ?? []
+  // the document names one of our other companies as the recipient
+  const mismatchedCompany =
+    (companies?.data ?? []).find(
+      (item) =>
+        invoice.recipient_ico &&
+        item.ico === invoice.recipient_ico &&
+        item.id !== invoice.recipient_company_id,
+    ) ?? null
   const showVatCurrency =
     new Set(vatRows.map((item) => item.currency ?? invoice.currency ?? null))
       .size > 1
@@ -413,7 +565,12 @@ function InvoiceDetail() {
               onValueChange={(value) => assignMutation.mutate(value)}
               disabled={!editable || assignMutation.isPending}
             >
-              <SelectTrigger data-testid="company-select">
+              <SelectTrigger
+                data-testid="company-select"
+                className={
+                  mismatchedCompany ? "ring-1 ring-destructive" : undefined
+                }
+              >
                 <SelectValue placeholder={t("invoice.assignPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
@@ -424,11 +581,46 @@ function InvoiceDetail() {
                 ))}
               </SelectContent>
             </Select>
+            {mismatchedCompany && (
+              <Alert
+                variant="destructive"
+                data-testid="recipient-mismatch-alert"
+              >
+                <AlertTriangle className="size-4" />
+                <AlertTitle>
+                  {t("invoice.recipientOtherCompanyTitle")}
+                </AlertTitle>
+                <AlertDescription className="flex flex-col items-start gap-2">
+                  {t("invoice.recipientOtherCompanyText", {
+                    name: mismatchedCompany.name,
+                    ico: mismatchedCompany.ico,
+                  })}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => assignMutation.mutate(mismatchedCompany.id)}
+                    data-testid="recipient-switch-button"
+                  >
+                    {t("invoice.recipientSwitch")}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
             {invoice.company && (
               <p className="text-sm text-muted-foreground">
                 {t("invoice.icoLabel")}: {invoice.company.ico} ·{" "}
                 {t("invoice.dicLabel")}: {invoice.company.dic ?? "—"} ·{" "}
                 {companyAccounts.join(" · ")}
+              </p>
+            )}
+            {invoice.external_number && (
+              <p
+                className="text-sm text-muted-foreground"
+                data-testid="external-number"
+              >
+                {t("invoice.externalNumber")}:{" "}
+                <span className="font-mono">{invoice.external_number}</span>
               </p>
             )}
             {invoice.company?.address && (
@@ -495,6 +687,17 @@ function InvoiceDetail() {
                         <Input {...field} disabled={!editable} />
                       </FormControl>
                       <FormMessage />
+                      {editable && !/^\d{8}$/.test(field.value ?? "") ? (
+                        <IdCandidates
+                          invoiceId={invoiceId}
+                          kind="ico"
+                          onPick={(value) =>
+                            form.setValue("supplier_ico", value, {
+                              shouldDirty: true,
+                            })
+                          }
+                        />
+                      ) : null}
                     </FormItem>
                   )}
                 />
@@ -508,34 +711,31 @@ function InvoiceDetail() {
                         <Input {...field} disabled={!editable} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="supplier_bank_account"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("invoice.bankAccount")}</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          disabled={!editable}
-                          data-testid="supplier-bank-account-input"
+                      {editable &&
+                      !/^[A-Z]{2}\d{8,12}$/i.test(
+                        (field.value ?? "").trim(),
+                      ) ? (
+                        <IdCandidates
+                          invoiceId={invoiceId}
+                          kind="dic"
+                          onPick={(value) =>
+                            form.setValue("supplier_dic", value, {
+                              shouldDirty: true,
+                            })
+                          }
                         />
-                      </FormControl>
-                      <FormMessage />
+                      ) : null}
                     </FormItem>
                   )}
                 />
                 <FormField
                   control={form.control}
-                  name="supplier_iban"
+                  name="supplier_email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("invoice.iban")}</FormLabel>
+                      <FormLabel>{t("invoice.supplierEmail")}</FormLabel>
                       <FormControl>
-                        <Input {...field} disabled={!editable} />
+                        <Input type="email" {...field} disabled={!editable} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -563,6 +763,66 @@ function InvoiceDetail() {
                       <FormControl>
                         <Input type="date" {...field} disabled={!editable} />
                       </FormControl>
+                      <FormMessage />
+                      {field.value === "" &&
+                        form.watch("payment_method") === "splatna" && (
+                          <p className="text-xs text-amber-600">
+                            {t("invoice.dueDateMissing")}
+                          </p>
+                        )}
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="delivery_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("invoice.taxDate")}</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} disabled={!editable} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="kh_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("invoice.khDate")}</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} disabled={!editable} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="payment_method"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("invoice.paymentMethod")}</FormLabel>
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
+                        disabled={!editable}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {PAYMENT_METHODS.map((method) => (
+                            <SelectItem key={method} value={method}>
+                              {t(`payment.${method}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -608,29 +868,52 @@ function InvoiceDetail() {
                 />
               </div>
 
-              <div className="grid gap-3 rounded-md border p-3">
-                <span className="text-sm font-medium">
-                  {t("invoice.documentAccounts")}
-                </span>
-                {supplierAccounts.fields.map((row, index) => (
-                  <div
-                    key={row.id}
-                    className="grid grid-cols-[1fr_1fr_auto] items-start gap-3"
-                    data-testid="supplier-account-row"
-                  >
+              {/* every account number in one collapsible panel; it opens on
+                  its own when the document carries a different account */}
+              <div className="rounded-md border" data-testid="accounts-panel">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium"
+                  data-testid="accounts-toggle"
+                  aria-expanded={accountsOpen}
+                  onClick={() => setAccountsOpenOverride(!accountsOpen)}
+                >
+                  {accountsOpen ? (
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  )}
+                  {accountsMismatch && (
+                    <AlertTriangle
+                      className="size-4 shrink-0 text-destructive"
+                      data-testid="accounts-mismatch-icon"
+                    />
+                  )}
+                  <span className="shrink-0">{t("invoice.accountsPanel")}</span>
+                  {!accountsOpen && (
+                    <span className="truncate text-xs font-normal text-muted-foreground">
+                      {accountSummary}
+                    </span>
+                  )}
+                </button>
+                {accountsOpen && (
+                  <div className="grid gap-3 border-t p-3">
                     <FormField
                       control={form.control}
-                      name={`supplier_bank_accounts.${index}.account`}
+                      name="supplier_bank_account"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t("companyFields.account")}</FormLabel>
+                          <FormLabel>{t("invoice.bankAccount")}</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder={t(
-                                "companyFields.accountPlaceholder",
-                              )}
                               {...field}
                               disabled={!editable}
+                              className={
+                                accountsMismatch
+                                  ? "border-destructive"
+                                  : undefined
+                              }
+                              data-testid="supplier-bank-account-input"
                             />
                           </FormControl>
                           <FormMessage />
@@ -639,49 +922,104 @@ function InvoiceDetail() {
                     />
                     <FormField
                       control={form.control}
-                      name={`supplier_bank_accounts.${index}.iban`}
+                      name="supplier_iban"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t("companyFields.iban")}</FormLabel>
+                          <FormLabel>{t("invoice.iban")}</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder={t("companyFields.ibanPlaceholder")}
                               {...field}
                               disabled={!editable}
+                              className={
+                                accountsMismatch
+                                  ? "border-destructive"
+                                  : undefined
+                              }
                             />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="mt-7"
-                      disabled={!editable}
-                      onClick={() => supplierAccounts.remove(index)}
-                      aria-label={t("companyFields.removeAccount")}
-                      data-testid="remove-supplier-account-button"
-                    >
-                      <X className="size-4" />
-                    </Button>
+                    <span className="text-sm font-medium">
+                      {t("invoice.documentAccounts")}
+                    </span>
+                    {supplierAccounts.fields.map((row, index) => (
+                      <div
+                        key={row.id}
+                        className="grid grid-cols-[1fr_1fr_auto] items-start gap-3"
+                        data-testid="supplier-account-row"
+                      >
+                        <FormField
+                          control={form.control}
+                          name={`supplier_bank_accounts.${index}.account`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {t("companyFields.account")}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder={t(
+                                    "companyFields.accountPlaceholder",
+                                  )}
+                                  {...field}
+                                  disabled={!editable}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`supplier_bank_accounts.${index}.iban`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t("companyFields.iban")}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder={t(
+                                    "companyFields.ibanPlaceholder",
+                                  )}
+                                  {...field}
+                                  disabled={!editable}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="mt-7"
+                          disabled={!editable}
+                          onClick={() => supplierAccounts.remove(index)}
+                          aria-label={t("companyFields.removeAccount")}
+                          data-testid="remove-supplier-account-button"
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    {editable && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="justify-self-start"
+                        onClick={() =>
+                          supplierAccounts.append({ account: "", iban: "" })
+                        }
+                        data-testid="add-supplier-account-button"
+                      >
+                        <Plus className="mr-2 size-4" />
+                        {t("companyFields.addAccount")}
+                      </Button>
+                    )}
                   </div>
-                ))}
-                {editable && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="justify-self-start"
-                    onClick={() =>
-                      supplierAccounts.append({ account: "", iban: "" })
-                    }
-                    data-testid="add-supplier-account-button"
-                  >
-                    <Plus className="mr-2 size-4" />
-                    {t("companyFields.addAccount")}
-                  </Button>
                 )}
               </div>
 
@@ -705,7 +1043,7 @@ function InvoiceDetail() {
             </form>
           </Form>
 
-          {invoice.vat_items && invoice.vat_items.length > 0 && (
+          {((invoice.vat_items?.length ?? 0) > 0 || editable) && (
             <div className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-semibold">{t("invoice.vatItems")}</h2>
@@ -722,61 +1060,208 @@ function InvoiceDetail() {
                   )
                 })}
               </div>
-              <Table data-testid="vat-items-table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("invoice.vatRate")}</TableHead>
-                    {showVatCurrency && (
-                      <TableHead>{t("invoice.vatCurrency")}</TableHead>
-                    )}
-                    <TableHead className="text-right">
-                      {t("invoice.vatBase")}
-                    </TableHead>
-                    <TableHead className="text-right">
-                      {t("invoice.vat")}
-                    </TableHead>
-                    <TableHead className="text-right">
-                      {t("invoice.total")}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoice.vat_items.map((item) => (
-                    <TableRow
-                      key={`${item.vat_rate ?? ""}-${item.currency ?? ""}`}
+              {editable ? (
+                <Form {...form}>
+                  <div
+                    className="flex flex-col gap-3"
+                    data-testid="vat-items-editable"
+                  >
+                    {vatRowFields.fields.map((row, index) => (
+                      <div
+                        key={row.id}
+                        className="grid grid-cols-[9rem_1fr_1fr_1fr_auto] items-start gap-2"
+                        data-testid={`vat-row-${index}`}
+                      >
+                        <FormField
+                          control={form.control}
+                          name={`vat_rows.${index}.vat_rate`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t("invoice.vatRate")}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="21%"
+                                  {...field}
+                                  data-testid={`vat-row-rate-${index}`}
+                                  onChange={(e) =>
+                                    onVatCellChange(
+                                      index,
+                                      "vat_rate",
+                                      field.onChange,
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`vat_rows.${index}.base_price`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t("invoice.vatBase")}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="1000.00"
+                                  {...field}
+                                  data-testid={`vat-row-base-${index}`}
+                                  onChange={(e) =>
+                                    onVatCellChange(
+                                      index,
+                                      "base_price",
+                                      field.onChange,
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`vat_rows.${index}.tax_price`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t("invoice.vat")}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="210.00"
+                                  {...field}
+                                  data-testid={`vat-row-tax-${index}`}
+                                  onChange={(e) =>
+                                    onVatCellChange(
+                                      index,
+                                      "tax_price",
+                                      field.onChange,
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`vat_rows.${index}.total_price`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t("invoice.total")}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="1210.00"
+                                  {...field}
+                                  data-testid={`vat-row-total-${index}`}
+                                  onChange={(e) =>
+                                    onVatCellChange(
+                                      index,
+                                      "total_price",
+                                      field.onChange,
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="mt-6"
+                          onClick={() => vatRowFields.remove(index)}
+                          data-testid={`vat-row-remove-${index}`}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
+                      onClick={() =>
+                        vatRowFields.append({
+                          vat_rate: "21%",
+                          base_price: "",
+                          tax_price: "",
+                          total_price: "",
+                          currency: "",
+                        })
+                      }
+                      data-testid="vat-row-add"
                     >
-                      <TableCell>{item.vat_rate ?? "—"}</TableCell>
+                      <Plus className="mr-2 size-4" />
+                      {t("invoice.vatAddRate")}
+                    </Button>
+                  </div>
+                </Form>
+              ) : (
+                <Table data-testid="vat-items-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("invoice.vatRate")}</TableHead>
                       {showVatCurrency && (
-                        <TableCell>
-                          {item.currency ?? invoice.currency}
-                        </TableCell>
+                        <TableHead>{t("invoice.vatCurrency")}</TableHead>
                       )}
+                      <TableHead className="text-right">
+                        {t("invoice.vatBase")}
+                      </TableHead>
+                      <TableHead className="text-right">
+                        {t("invoice.vat")}
+                      </TableHead>
+                      <TableHead className="text-right">
+                        {t("invoice.total")}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invoice.vat_items?.map((item) => (
+                      <TableRow
+                        key={`${item.vat_rate ?? ""}-${item.currency ?? ""}`}
+                      >
+                        <TableCell>{item.vat_rate ?? "—"}</TableCell>
+                        {showVatCurrency && (
+                          <TableCell>
+                            {item.currency ?? invoice.currency}
+                          </TableCell>
+                        )}
+                        <TableCell className="text-right">
+                          {formatPrice(item.base_price)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatPrice(item.tax_price)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatPrice(item.total_price)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="font-medium">
+                      <TableCell>{t("invoice.vatTotal")}</TableCell>
+                      {showVatCurrency && <TableCell />}
                       <TableCell className="text-right">
-                        {formatPrice(item.base_price)}
+                        {formatPrice(vatSums.base.toFixed(2))}
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatPrice(item.tax_price)}
+                        {formatPrice(vatSums.tax.toFixed(2))}
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatPrice(item.total_price)}
+                        {formatPrice(vatSums.total.toFixed(2))}
                       </TableCell>
                     </TableRow>
-                  ))}
-                  <TableRow className="font-medium">
-                    <TableCell>{t("invoice.vatTotal")}</TableCell>
-                    {showVatCurrency && <TableCell />}
-                    <TableCell className="text-right">
-                      {formatPrice(vatSums.base.toFixed(2))}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatPrice(vatSums.tax.toFixed(2))}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatPrice(vatSums.total.toFixed(2))}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+                  </TableBody>
+                </Table>
+              )}
             </div>
           )}
 
@@ -814,6 +1299,25 @@ function InvoiceDetail() {
                   {t("invoice.approveAfterParse")}
                 </p>
               )}
+            {(invoice.uploaded_by || invoice.approved_by) && (
+              <p
+                className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground"
+                data-testid="invoice-actors"
+              >
+                <span data-testid="invoice-uploaded-by">
+                  {t("invoice.uploadedBy")}:{" "}
+                  {invoice.uploaded_by?.full_name ||
+                    invoice.uploaded_by?.email ||
+                    "—"}
+                </span>
+                <span data-testid="invoice-approved-by">
+                  {t("invoice.approvedBy")}:{" "}
+                  {invoice.approved_by
+                    ? `${invoice.approved_by.full_name || invoice.approved_by.email} · ${new Date(invoice.approved_at ?? 0).toLocaleDateString()}`
+                    : t("invoice.approvalPending")}
+                </span>
+              </p>
+            )}
           </div>
         </div>
       </div>

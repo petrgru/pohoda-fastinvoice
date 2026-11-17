@@ -29,7 +29,7 @@ export function Logo({
       <>
         <img
           src={fullLogo}
-          alt="Faktury Import"
+          alt="Pohoda FastInvoice"
           className={cn(
             "h-6 w-auto group-data-[collapsible=icon]:hidden",
             className,
@@ -37,7 +37,7 @@ export function Logo({
         />
         <img
           src={iconLogo}
-          alt="Faktury Import"
+          alt="Pohoda FastInvoice"
           className={cn(
             "size-5 hidden group-data-[collapsible=icon]:block",
             className,
@@ -47,7 +47,7 @@ export function Logo({
     ) : (
       <img
         src={variant === "full" ? fullLogo : iconLogo}
-        alt="Faktury Import"
+        alt="Pohoda FastInvoice"
         className={cn(variant === "full" ? "h-6 w-auto" : "size-5", className)}
       />
     )

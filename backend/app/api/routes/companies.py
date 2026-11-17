@@ -515,11 +515,31 @@ def create_api_key(
     recipient_access.ensure_company_access(
         session, current_user, company.id, MembershipRole.ADMIN
     )
+    # one active key per company – a new key replaces (deletes) the old one,
+    # revoked keys are never kept around, the audit log records the rotation
+    previous = session.exec(
+        select(RecipientApiKey)
+        .where(RecipientApiKey.recipient_company_id == company.id)
+        .where(col(RecipientApiKey.revoked_at).is_(None))
+    ).all()
+    for old_key in previous:
+        session.delete(old_key)
+        invoice_service.log_audit(
+            session,
+            "api_key_rotated",
+            company=company,
+            user=current_user,
+            details={"label": old_key.label},
+        )
+    # delete the replaced keys before inserting the new one – the partial
+    # unique index would otherwise reject the fresh key
+    session.flush()
     plaintext, key_hash = recipient_access.generate_api_key()
     key = RecipientApiKey(
         recipient_company_id=company.id,
         label=key_in.label,
         key_prefix=plaintext[:12],
+        key_suffix=plaintext[-6:],
         key_hash=key_hash,
         created_by_id=current_user.id,
     )
@@ -553,8 +573,7 @@ def revoke_api_key(
     key = session.get(RecipientApiKey, key_id)
     if key is None or key.recipient_company_id != company.id:
         raise HTTPException(status_code=404, detail="errors.api_key_not_found")
-    key.revoked_at = get_datetime_utc()
-    session.add(key)
+    session.delete(key)
     invoice_service.log_audit(
         session,
         "api_key_revoked",

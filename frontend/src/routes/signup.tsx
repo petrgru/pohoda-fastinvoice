@@ -169,6 +169,7 @@ function SignUp() {
               type="submit"
               className="w-full"
               loading={signUpMutation.isPending}
+              data-testid="signup-button"
             >
               Sign Up
             </LoadingButton>

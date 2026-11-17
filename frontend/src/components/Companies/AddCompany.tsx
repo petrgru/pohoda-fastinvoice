@@ -46,6 +46,7 @@ export const BANK_ACCOUNT_FORMAT =
 export const DIC_FORMAT = /^\d{8,10}$|^[A-Z]{2}[A-Z0-9]{8,12}$/i
 
 export const IBAN_FORMAT = /^[A-Z]{2}\d{2}[A-Z0-9]{10,32}$/i
+export const EMAIL_FORMAT = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
 /** IBANs are commonly written in 4-char groups – ignore inner spaces. */
 const ibanValid = (value: string) => IBAN_FORMAT.test(value.replace(/\s+/g, ""))
@@ -60,6 +61,7 @@ export const companySchema = z.object({
   ico: z.string(),
   dic: z.string().optional(),
   address: z.string().max(255).optional(),
+  email: z.string().optional(),
   bank_account: z.string(),
   iban: z.string().optional(),
   other_accounts: z.array(bankAccountRowSchema).optional(),
@@ -98,6 +100,13 @@ export const createCompanySchema = (
       .refine(
         (value) => !value || ibanValid(value),
         t("companyFields.errIbanFormat"),
+      ),
+    email: z
+      .string()
+      .optional()
+      .refine(
+        (value) => !value || EMAIL_FORMAT.test(value.trim()),
+        t("companyFields.errEmailFormat"),
       ),
     other_accounts: z
       .array(
@@ -416,6 +425,24 @@ export const CompanyFields = ({
           </FormItem>
         )}
       />
+      <FormField
+        control={control}
+        name="email"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("companyFields.email")}</FormLabel>
+            <FormControl>
+              <Input
+                type="email"
+                placeholder="info@firm.example"
+                {...field}
+                disabled={disabled}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
       <div className="grid gap-3 rounded-md border p-3">
         <div className="grid grid-cols-2 gap-3">
           <FormField
@@ -561,6 +588,7 @@ export const AddCompany = () => {
       ico: "",
       dic: "",
       address: "",
+      email: "",
       bank_account: "",
       iban: "",
       other_accounts: [],
@@ -576,6 +604,7 @@ export const AddCompany = () => {
           ico: data.ico,
           dic: data.dic || null,
           address: data.address || null,
+          email: data.email || null,
           bank_account: data.bank_account,
           bank_accounts: toBankAccountRows(data),
           note: data.note || null,

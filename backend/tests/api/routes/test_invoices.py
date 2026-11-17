@@ -678,3 +678,186 @@ def test_invoice_stats_buckets(
     assert data["totals"]["exported"] >= 1
     # every period appears exactly once
     assert len({bucket["period"] for bucket in data["month"]}) == 12
+
+
+def test_invoice_actors_exposed(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+    storage_dir,
+    parsing_ok,
+):
+    """Upload records who uploaded; approval records who approved (public projection)."""
+    created = upload(client, superuser_token_headers).json()
+    invoice = detail(client, superuser_token_headers, created["id"])
+    assert invoice["uploaded_by_id"] is not None
+    assert invoice["uploaded_by"]["email"] == settings.FIRST_SUPERUSER
+    assert invoice["approved_by"] is None
+
+    company = create_company(db)
+    client.put(
+        f"/api/v1/invoices/{created['id']}/recipient-company",
+        headers=superuser_token_headers,
+        json={"recipient_company_id": str(company.id)},
+    )
+    response = client.post(
+        f"/api/v1/invoices/{created['id']}/approve", headers=superuser_token_headers
+    )
+    assert response.status_code == 200
+    assert response.json()["approved_by"]["email"] == settings.FIRST_SUPERUSER
+    assert response.json()["approved_at"] is not None
+
+    # revoking approval clears the actor again
+    response = client.post(
+        f"/api/v1/invoices/{created['id']}/unapprove", headers=superuser_token_headers
+    )
+    assert response.json()["approved_by"] is None
+    assert response.json()["uploaded_by"]["email"] == settings.FIRST_SUPERUSER
+
+
+def test_id_candidates_endpoint(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+):
+    """The UI gets document-wide IČ/DIČ suggestions when parsing failed."""
+    invoice = create_invoice(
+        db,
+        ocr_text=(
+            "Dodavatel: ALFA s.r.o. IČ: 47123788 DIČ: CZ47123788\n"
+            "Odběratel: BETA a.s. IČ zákazníka: 28684011 DIČ: CZ28684011\n"
+            "Účet 123456789/0100 IBAN CZ6501000000000023456789"
+        ),
+    )
+    response = client.get(
+        f"/api/v1/invoices/{invoice.id}/id-candidates",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert [item["value"] for item in data["ico"]] == ["47123788", "28684011"]
+    assert data["ico"][0]["entity"] == "seller"
+    assert data["ico"][1]["entity"] == "buyer"
+    assert any(item["looks_valid"] for item in data["ico"])
+    assert {item["value"] for item in data["dic"]} == {"CZ47123788", "CZ28684011"}
+
+    # an invoice without any text just yields empty lists
+    blank = create_invoice(db, ocr_text="")
+    response = client.get(
+        f"/api/v1/invoices/{blank.id}/id-candidates", headers=superuser_token_headers
+    )
+    assert response.json() == {"ico": [], "dic": []}
+
+
+def test_queue_filter_by_company(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+):
+    """The task queue can be narrowed to the company selected in the header."""
+    company = create_company(db)
+    mine = create_invoice(db, company=company)
+    create_invoice(db)  # another company -> filtered out
+
+    response = client.get(
+        f"/api/v1/invoices/queue?recipient_company_id={company.id}",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    ids = [item["id"] for item in response.json()["data"]]
+    assert str(mine.id) in ids
+
+    response = client.get(
+        f"/api/v1/invoices/stats?recipient_company_id={company.id}",
+        headers=superuser_token_headers,
+    )
+    totals = response.json()["totals"]
+    assert sum(totals.values()) >= 1
+    # a different company sees nothing of ours
+    other = create_company(db)
+    response = client.get(
+        f"/api/v1/invoices/queue?recipient_company_id={other.id}",
+        headers=superuser_token_headers,
+    )
+    assert str(mine.id) not in [item["id"] for item in response.json()["data"]]
+
+
+def test_invoice_dates_are_mandatory(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+):
+    """A tax document without the three key dates cannot be saved or approved."""
+    from datetime import date
+
+    company = create_company(db)
+    invoice = create_invoice(
+        db,
+        company=company,
+        issue_date=date(2024, 3, 1),
+        delivery_date=None,
+        due_date=None,
+    )
+
+    response = client.put(
+        f"/api/v1/invoices/{invoice.id}",
+        headers=superuser_token_headers,
+        json={"supplier_name": "TEST s.r.o."},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith("errors.dateRequired")
+
+    response = client.post(
+        f"/api/v1/invoices/{invoice.id}/approve", headers=superuser_token_headers
+    )
+    assert response.status_code == 409
+    assert "errors.approvalMissingDates" in response.json()["detail"]
+
+    # filling the dates makes both pass
+    response = client.put(
+        f"/api/v1/invoices/{invoice.id}",
+        headers=superuser_token_headers,
+        json={"due_date": "2024-03-15", "delivery_date": "2024-03-01"},
+    )
+    assert response.status_code == 200
+    response = client.post(
+        f"/api/v1/invoices/{invoice.id}/approve", headers=superuser_token_headers
+    )
+    assert response.status_code == 200
+
+
+def test_invoice_payment_email_and_kh_roundtrip(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+):
+    invoice = create_invoice(db)
+    response = client.put(
+        f"/api/v1/invoices/{invoice.id}",
+        headers=superuser_token_headers,
+        json={
+            "payment_method": "inkasem",
+            "supplier_email": "  Facts@Alpha.CZ  ",
+            "kh_date": "2024-02-28",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["payment_method"] == "inkasem"
+    assert body["supplier_email"] == "Facts@Alpha.CZ"  # trimmed, case kept
+    assert body["kh_date"] == "2024-02-28"
+
+
+def test_invoice_columns_saved_in_profile(
+    client: TestClient, superuser_token_headers: dict[str, str]
+):
+    response = client.patch(
+        "/api/v1/users/me",
+        headers=superuser_token_headers,
+        json={"invoice_columns": ["invoice_number", "total_price"]},
+    )
+    assert response.status_code == 200
+    assert response.json()["invoice_columns"] == ["invoice_number", "total_price"]
+
+    response = client.get("/api/v1/users/me", headers=superuser_token_headers)
+    assert response.json()["invoice_columns"] == ["invoice_number", "total_price"]
+
+    # null resets to the default (all columns)
+    response = client.patch(
+        "/api/v1/users/me",
+        headers=superuser_token_headers,
+        json={"invoice_columns": None},
+    )
+    assert response.json()["invoice_columns"] is None

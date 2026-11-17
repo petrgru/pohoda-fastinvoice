@@ -10,7 +10,8 @@ příloh. Navazuje na stejné autentizační schéma jako [Export API](export-ap
     přiřazené této firmě–příjemci; cizí faktury jsou `404` (aby nedošlo
     k prozrazení jejich existence),
   - bez jakéhokoliv aktivního klíče → `503`, špatný klíč → `401`.
-- Žádný endpoint nikam nezapíše – mutace zůstávají výhradně v uživatelském UI.
+- Žádný endpoint sem nezapíše – mutace má vlastní [External API](external-api.md)
+  (korektury faktury a výsledek zpracování).
 
 ## Endpointy
 
@@ -78,5 +79,7 @@ curl -H "X-API-Key: fik_…" \
   "https://<host>/api/v1/data/invoices?state=exported&limit=100"
 ```
 
-Klíč vznikne v *Správě firmy → API klíče*; zobrazí se právě jednou. Zrušení
-klíče okamžitě odebere přístup všem datovým i exportním endpointům.
+Klíč vznikne v *Správě firmy → API klíče*; zobrazí se právě jednou. Firma má
+právě jeden aktivní klíč – generování nového ten předchozí nahradí (smaže).
+Zrušení klíče jej úplně odstraní a okamžitě odebere přístup všem datovým i
+exportním endpointům; zrušené klíče se nikde nezobrazují.

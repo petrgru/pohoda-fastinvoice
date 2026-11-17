@@ -13,9 +13,11 @@ promotes the account in the supplier registry to ``confirmed``, so later
 invoices are compared against it.
 """
 
+import logging
 from typing import Any
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
@@ -28,6 +30,8 @@ from app.models import (
     normalize_bank_account,
 )
 from app.services import invoices as invoice_service
+
+logger = logging.getLogger(__name__)
 
 ACCOUNT_FIELDS = ("supplier_bank_account", "supplier_iban", "supplier_bank_accounts")
 
@@ -151,7 +155,16 @@ def upsert_from_invoice(session: Session, invoice: Invoice) -> Supplier | None:
         k for row in rows for k in (_normalize(row.account), _normalize(row.iban)) if k
     }
     for value in sorted(accounts_of(invoice) - seen):
-        rows.append(SupplierKnownAccount.model_validate({"account": value}))
+        try:
+            rows.append(SupplierKnownAccount.model_validate({"account": value}))
+        except ValidationError:
+            # OCR produces mangled IBANs now and then; keep them on the invoice
+            # where the user can fix them, but never fail the whole document
+            logger.warning(
+                "Invoice %s: not registering malformed supplier account %r",
+                invoice.id,
+                value,
+            )
     supplier.bank_accounts = [row.model_dump(mode="json") for row in rows]
     session.add(supplier)
     return supplier

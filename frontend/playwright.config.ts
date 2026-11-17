@@ -32,6 +32,14 @@ export default defineConfig({
        when the bundled Chromium download is not available. */
     channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
 
+    /* Deterministic fake camera for the document-photo test. */
+    launchOptions: {
+      args: [
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+      ],
+    },
+
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },

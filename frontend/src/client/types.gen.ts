@@ -315,6 +315,29 @@ export type ExportResult = {
 };
 
 /**
+ * ExternalStatusUpdate
+ *
+ * Status change reported by an external accounting application.
+ *
+ * ``exported`` requires the document number the external system assigned;
+ * ``ready_for_export`` re-queues a failed invoice after its correction.
+ */
+export type ExternalStatusUpdate = {
+    /**
+     * State
+     */
+    state: 'exported' | 'export_failed' | 'ready_for_export';
+    /**
+     * Document Number
+     */
+    document_number?: string | null;
+    /**
+     * Note
+     */
+    note?: string | null;
+};
+
+/**
  * HTTPValidationError
  */
 export type HTTPValidationError = {
@@ -322,6 +345,46 @@ export type HTTPValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
+};
+
+/**
+ * IdCandidate
+ *
+ * One IČO/DIČ-like value found in the document text.
+ */
+export type IdCandidate = {
+    /**
+     * Value
+     */
+    value: string;
+    /**
+     * Entity
+     */
+    entity: string;
+    /**
+     * Context
+     */
+    context?: string;
+    /**
+     * Looks Valid
+     */
+    looks_valid?: boolean;
+};
+
+/**
+ * IdCandidatesPublic
+ *
+ * Suggested identification numbers for a poorly parsed invoice.
+ */
+export type IdCandidatesPublic = {
+    /**
+     * Ico
+     */
+    ico?: Array<IdCandidate>;
+    /**
+     * Dic
+     */
+    dic?: Array<IdCandidate>;
 };
 
 /**
@@ -411,6 +474,10 @@ export type InvoicePublic = {
      */
     recipient_dic?: string | null;
     /**
+     * Supplier Email
+     */
+    supplier_email?: string | null;
+    /**
      * Document Type
      */
     document_type?: string | null;
@@ -426,6 +493,14 @@ export type InvoicePublic = {
      * Due Date
      */
     due_date?: string | null;
+    /**
+     * Kh Date
+     */
+    kh_date?: string | null;
+    /**
+     * Payment Method
+     */
+    payment_method?: string | null;
     /**
      * Total Price
      */
@@ -467,10 +542,12 @@ export type InvoicePublic = {
      * Uploaded By Id
      */
     uploaded_by_id?: string | null;
+    uploaded_by?: UserBasic | null;
     /**
      * Approved By Id
      */
     approved_by_id?: string | null;
+    approved_by?: UserBasic | null;
     /**
      * Approved At
      */
@@ -479,6 +556,10 @@ export type InvoicePublic = {
      * Exported At
      */
     exported_at?: string | null;
+    /**
+     * External Number
+     */
+    external_number?: string | null;
     /**
      * Account Confirmed At
      */
@@ -508,6 +589,18 @@ export type InvoicePublic = {
      */
     queue_reasons?: Array<string>;
 };
+
+/**
+ * InvoiceState
+ *
+ * Workflow states of an invoice.
+ *
+ * Transitions (enforced in crud.invoices):
+ * UPLOADED -> PARSING -> NEEDS_REVIEW -> READY_FOR_EXPORT -> EXPORTED
+ * \-> EXPORT_FAILED -> NEEDS_REVIEW
+ * A record may be deleted in any state except EXPORTED.
+ */
+export type InvoiceState = 'uploaded' | 'parsing' | 'needs_review' | 'ready_for_export' | 'exported' | 'export_failed';
 
 /**
  * InvoiceStateCounts
@@ -618,6 +711,10 @@ export type InvoiceUpdate = {
      */
     supplier_bank_accounts?: Array<SupplierBankAccount> | null;
     /**
+     * Supplier Email
+     */
+    supplier_email?: string | null;
+    /**
      * Document Type
      */
     document_type?: string | null;
@@ -633,6 +730,14 @@ export type InvoiceUpdate = {
      * Due Date
      */
     due_date?: string | null;
+    /**
+     * Kh Date
+     */
+    kh_date?: string | null;
+    /**
+     * Payment Method
+     */
+    payment_method?: string | null;
     /**
      * Total Price
      */
@@ -805,6 +910,10 @@ export type RecipientApiKeyCreated = {
      */
     key_prefix: string;
     /**
+     * Key Suffix
+     */
+    key_suffix?: string | null;
+    /**
      * Created At
      */
     created_at?: string | null;
@@ -838,6 +947,10 @@ export type RecipientApiKeyPublic = {
      * Key Prefix
      */
     key_prefix: string;
+    /**
+     * Key Suffix
+     */
+    key_suffix?: string | null;
     /**
      * Created At
      */
@@ -901,6 +1014,10 @@ export type RecipientCompanyCreate = {
      */
     bank_account?: string | null;
     /**
+     * Email
+     */
+    email?: string | null;
+    /**
      * Note
      */
     note?: string | null;
@@ -938,6 +1055,10 @@ export type RecipientCompanyPublic = {
      * Bank Account
      */
     bank_account?: string | null;
+    /**
+     * Email
+     */
+    email?: string | null;
     /**
      * Note
      */
@@ -997,6 +1118,10 @@ export type RecipientCompanyUpdate = {
      * Bank Accounts
      */
     bank_accounts?: Array<BankAccountCreate> | null;
+    /**
+     * Email
+     */
+    email?: string | null;
     /**
      * Note
      */
@@ -1154,6 +1279,26 @@ export type UpdatePassword = {
 };
 
 /**
+ * UserBasic
+ *
+ * Minimum user identity embedded in other resources.
+ */
+export type UserBasic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Full Name
+     */
+    full_name?: string | null;
+    /**
+     * Email
+     */
+    email?: string | null;
+};
+
+/**
  * UserCreate
  */
 export type UserCreate = {
@@ -1207,6 +1352,10 @@ export type UserPublic = {
      * Created At
      */
     created_at?: string | null;
+    /**
+     * Invoice Columns
+     */
+    invoice_columns?: Array<string> | null;
 };
 
 /**
@@ -1265,6 +1414,10 @@ export type UserUpdateMe = {
      * Email
      */
     email?: string | null;
+    /**
+     * Invoice Columns
+     */
+    invoice_columns?: Array<string> | null;
 };
 
 /**
@@ -2363,6 +2516,10 @@ export type invoicesListQueueData = {
          * Limit
          */
         limit?: number;
+        /**
+         * Recipient Company Id
+         */
+        recipient_company_id?: string | null;
     };
     url: '/api/v1/invoices/queue';
 };
@@ -2388,9 +2545,23 @@ export type invoicesListQueueResponse = invoicesListQueueResponses[keyof invoice
 export type invoicesInvoiceStatsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Recipient Company Id
+         */
+        recipient_company_id?: string | null;
+    };
     url: '/api/v1/invoices/stats';
 };
+
+export type invoicesInvoiceStatsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesInvoiceStatsError = invoicesInvoiceStatsErrors[keyof invoicesInvoiceStatsErrors];
 
 export type invoicesInvoiceStatsResponses = {
     /**
@@ -2520,6 +2691,36 @@ export type invoicesGetInvoiceFileResponses = {
      */
     200: unknown;
 };
+
+export type invoicesInvoiceIdCandidatesData = {
+    body?: never;
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/invoices/{invoice_id}/id-candidates';
+};
+
+export type invoicesInvoiceIdCandidatesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type invoicesInvoiceIdCandidatesError = invoicesInvoiceIdCandidatesErrors[keyof invoicesInvoiceIdCandidatesErrors];
+
+export type invoicesInvoiceIdCandidatesResponses = {
+    /**
+     * Successful Response
+     */
+    200: IdCandidatesPublic;
+};
+
+export type invoicesInvoiceIdCandidatesResponse = invoicesInvoiceIdCandidatesResponses[keyof invoicesInvoiceIdCandidatesResponses];
 
 export type invoicesAssignCompanyData = {
     body: RecipientCompanyAssign;
@@ -2782,6 +2983,162 @@ export type exportSyncCompaniesResponses = {
 };
 
 export type exportSyncCompaniesResponse = exportSyncCompaniesResponses[keyof exportSyncCompaniesResponses];
+
+export type externalListInvoicesData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * State
+         */
+        state?: InvoiceState | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Skip
+         */
+        skip?: number;
+    };
+    url: '/api/v1/external/invoices';
+};
+
+export type externalListInvoicesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type externalListInvoicesError = externalListInvoicesErrors[keyof externalListInvoicesErrors];
+
+export type externalListInvoicesResponses = {
+    /**
+     * Response External-List Invoices
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type externalListInvoicesResponse = externalListInvoicesResponses[keyof externalListInvoicesResponses];
+
+export type externalGetInvoiceData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/external/invoices/{invoice_id}';
+};
+
+export type externalGetInvoiceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type externalGetInvoiceError = externalGetInvoiceErrors[keyof externalGetInvoiceErrors];
+
+export type externalGetInvoiceResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvoicePublic;
+};
+
+export type externalGetInvoiceResponse = externalGetInvoiceResponses[keyof externalGetInvoiceResponses];
+
+export type externalUpdateInvoiceData = {
+    body: InvoiceUpdate;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/external/invoices/{invoice_id}';
+};
+
+export type externalUpdateInvoiceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type externalUpdateInvoiceError = externalUpdateInvoiceErrors[keyof externalUpdateInvoiceErrors];
+
+export type externalUpdateInvoiceResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvoicePublic;
+};
+
+export type externalUpdateInvoiceResponse = externalUpdateInvoiceResponses[keyof externalUpdateInvoiceResponses];
+
+export type externalChangeStatusData = {
+    body: ExternalStatusUpdate;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+    };
+    path: {
+        /**
+         * Invoice Id
+         */
+        invoice_id: string;
+    };
+    query?: never;
+    url: '/api/v1/external/invoices/{invoice_id}/status';
+};
+
+export type externalChangeStatusErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type externalChangeStatusError = externalChangeStatusErrors[keyof externalChangeStatusErrors];
+
+export type externalChangeStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvoicePublic;
+};
+
+export type externalChangeStatusResponse = externalChangeStatusResponses[keyof externalChangeStatusResponses];
 
 export type dataListInvoicesData = {
     body?: never;

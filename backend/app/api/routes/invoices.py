@@ -10,6 +10,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.api.routes import companies as companies_route
 from app.core.config import settings
 from app.models import (
+    IdCandidatesPublic,
     Invoice,
     InvoicePublic,
     InvoicesPublic,
@@ -26,6 +27,7 @@ from app.models import (
 )
 from app.services import account_integrity, recipient_access, search_index, storage
 from app.services import invoices as invoice_service
+from app.services import parsing as parsing_service
 from app.services import recipients as recipient_service
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -237,11 +239,17 @@ def list_queue(
     current_user: CurrentUser,
     skip: int = 0,
     limit: int = 50,
+    recipient_company_id: UUID | None = None,
 ) -> InvoicesPublic:
     """Invoices still waiting in the task queue (not yet imported)."""
     conditions: list[ColumnElement[bool]] = [col(Invoice.state).in_(QUEUE_STATES)]
     if (visible := recipient_access.invoice_filter(session, current_user)) is not None:
         conditions.append(visible)
+    if recipient_company_id is not None:
+        recipient_access.ensure_company_selectable(
+            session, current_user, recipient_company_id
+        )
+        conditions.append(col(Invoice.recipient_company_id) == recipient_company_id)
     count = session.exec(
         select(func.count()).select_from(Invoice).where(and_(*conditions))
     ).one()
@@ -262,12 +270,18 @@ def invoice_stats(
     *,
     session: SessionDep,
     current_user: CurrentUser,
+    recipient_company_id: UUID | None = None,
 ) -> InvoiceStats:
     """Aggregated counts for the dashboard (Plocha) chart and cards."""
+    if recipient_company_id is not None:
+        recipient_access.ensure_company_selectable(
+            session, current_user, recipient_company_id
+        )
     return invoice_service.stats(
         session,
         recipient_access.member_company_ids(session, current_user),
         current_user.id,
+        only_company_id=recipient_company_id,
     )
 
 
@@ -305,6 +319,24 @@ def get_invoice_file(
     )
 
 
+@router.get("/{invoice_id}/id-candidates", response_model=IdCandidatesPublic)
+def invoice_id_candidates(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    invoice_id: UUID,
+) -> IdCandidatesPublic:
+    """Every IČ/DIČ-like value found in the document, for manual pick-up.
+
+    Used when parsing failed to fill (or filled wrongly) the supplier's
+    identification numbers – the UI shows these as clickable suggestions.
+    """
+    invoice = _get_invoice(session, invoice_id, user=current_user)
+    if not invoice.ocr_text:
+        return IdCandidatesPublic()
+    return IdCandidatesPublic(**parsing_service.id_candidates(invoice.ocr_text))
+
+
 @router.put("/{invoice_id}", response_model=InvoicePublic)
 def update_invoice(
     *,
@@ -333,6 +365,12 @@ def update_invoice(
     ):
         account_integrity.confirm(session, invoice, user=current_user)
     invoice_service.recompute_derived(invoice)
+    # the three mandatory dates of a tax document must survive any edit
+    missing = invoice_service.missing_required_dates(invoice)
+    if missing and changes:
+        raise HTTPException(
+            status_code=422, detail="errors.dateRequired|" + ",".join(missing)
+        )
     invoice.updated_at = get_datetime_utc()
     session.add(invoice)
     invoice_service.log_audit(

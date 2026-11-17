@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { AxiosError } from "axios"
 import { Plus } from "lucide-react"
 import { useState } from "react"
@@ -35,18 +35,19 @@ import { handleError } from "@/utils"
  */
 export function AddCompanyForInvoice({
   invoice,
-  onSuccess,
+  onSuccess = () => {},
   size = "default",
   variant = "outline",
   disabled = false,
 }: {
   invoice: InvoicePublic
-  onSuccess: () => void
+  onSuccess?: () => void
   size?: "default" | "sm"
   variant?: "outline" | "ghost"
   disabled?: boolean
 }) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [duplicateIco, setDuplicateIco] = useState(false)
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -59,6 +60,7 @@ export function AddCompanyForInvoice({
       ico: invoice.recipient_ico ?? "",
       dic: invoice.recipient_dic ?? "",
       address: "",
+      email: "",
       bank_account: "",
       iban: "",
       other_accounts: [],
@@ -75,6 +77,7 @@ export function AddCompanyForInvoice({
           ico: data.ico,
           dic: data.dic || null,
           address: data.address || null,
+          email: data.email || null,
           bank_account: data.bank_account,
           bank_accounts: toBankAccountRows(data),
           note: data.note || null,
@@ -82,6 +85,10 @@ export function AddCompanyForInvoice({
       }),
     onSuccess: () => {
       showSuccessToast(t("addCompany.created"))
+      // the switcher in the header must learn about the new company at once
+      queryClient.invalidateQueries({ queryKey: ["companies"] })
+      queryClient.invalidateQueries({ queryKey: ["invoices"] })
+      queryClient.invalidateQueries({ queryKey: ["queue"] })
       setOpen(false)
       onSuccess()
     },
@@ -109,6 +116,7 @@ export function AddCompanyForInvoice({
             ico: invoice.recipient_ico ?? "",
             dic: invoice.recipient_dic ?? "",
             address: "",
+            email: "",
             bank_account: "",
             iban: "",
             other_accounts: [],

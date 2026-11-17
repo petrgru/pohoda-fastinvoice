@@ -39,13 +39,11 @@ function Companies() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {t("companies.title")}
-          </h1>
-          <p className="text-muted-foreground">{t("companies.subtitle")}</p>
-        </div>
+      {/* the action floats in the corner – it stays put while the list scrolls */}
+      <div
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2"
+        data-testid="companies-floating-actions"
+      >
         <AddCompany />
       </div>
       <form

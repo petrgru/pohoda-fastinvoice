@@ -5,6 +5,7 @@ see `InvoiceState` in app.models for the diagram.
 """
 
 import logging
+import threading
 import time
 import uuid
 from datetime import date, datetime, timedelta
@@ -12,7 +13,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import text as sa_text
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.db import engine
 from app.models import (
@@ -27,6 +28,7 @@ from app.models import (
     ParsedInvoice,
     RecipientCompany,
     User,
+    UserBasic,
     as_vat_items,
     check_vat_items,
     get_datetime_utc,
@@ -153,6 +155,7 @@ def stats(
     session: Session,
     visible_company_ids: list[uuid.UUID] | None = None,
     user_id: uuid.UUID | None = None,
+    only_company_id: uuid.UUID | None = None,
 ) -> InvoiceStats:
     """Invoice counts per day/week/month and by state for the dashboard.
 
@@ -165,6 +168,9 @@ def stats(
     if visible_company_ids is not None:
         scope = " AND (recipient_company_id = ANY(:visible_ids) OR uploaded_by_id = :scope_user)"
         scope_params = {"visible_ids": visible_company_ids, "scope_user": user_id}
+    if only_company_id is not None:
+        scope += " AND recipient_company_id = :only_company"
+        scope_params["only_company"] = only_company_id
     today = get_datetime_utc().date()
     for unit, (periods, back) in _STAT_RANGES.items():
         since = today - timedelta(days=back)
@@ -231,6 +237,21 @@ def _stat_period(moment: date | datetime, unit: str) -> str:
     return day.isoformat()
 
 
+def missing_required_dates(invoice: Invoice) -> list[str]:
+    """Machine keys of the missing mandatory dates of a tax document."""
+    if str(invoice.document_type or "invoice") not in ("invoice", "other"):
+        return []
+    return [
+        key
+        for field, key in (
+            (invoice.issue_date, "issueDate"),
+            (invoice.due_date, "dueDate"),
+            (invoice.delivery_date, "taxDate"),
+        )
+        if field is None
+    ]
+
+
 def queue_reasons(session: Session, invoice: Invoice) -> list[str]:
     """Machine-readable keys for why an invoice stays in the task queue.
 
@@ -254,6 +275,9 @@ def queue_reasons(session: Session, invoice: Invoice) -> list[str]:
         reasons.append("queue.reason.company_inactive")
     if invoice.vat_check_ok is False:
         reasons.append("queue.reason.vat_mismatch")
+    reasons.extend(
+        f"queue.reason.missing{key}" for key in missing_required_dates(invoice)
+    )
     if company is not None and invoice.approved_at is None:
         reasons.append("queue.reason.awaiting_approval")
     if state is InvoiceState.EXPORT_FAILED:
@@ -275,6 +299,11 @@ def assert_approvable(session: Session, invoice: Invoice) -> None:
         raise ApprovalNotAllowedError("errors.approval_not_parsed")
     if invoice.vat_check_ok is False:
         raise ApprovalNotAllowedError("errors.approval_vat_mismatch")
+    missing = missing_required_dates(invoice)
+    if missing:
+        raise ApprovalNotAllowedError(
+            "errors.approvalMissingDates|" + ",".join(missing)
+        )
 
 
 def assign_company(
@@ -420,6 +449,7 @@ def update_search_vector(session: Session, invoice: Invoice) -> None:
             invoice.supplier_dic,
             invoice.supplier_bank_account,
             invoice.supplier_iban,
+            invoice.supplier_email,
             " ".join(
                 str(part.get("account") or "") + " " + str(part.get("iban") or "")
                 for part in (invoice.supplier_bank_accounts or [])
@@ -466,6 +496,20 @@ def to_public(session: Session, invoice: Invoice) -> InvoicePublic:
     public = InvoicePublic.model_validate(invoice, from_attributes=True)
     public.can_delete = InvoiceState(invoice.state) in DELETABLE_STATES
     public.queue_reasons = queue_reasons(session, invoice)
+    for attr, user_id in (
+        ("uploaded_by", invoice.uploaded_by_id),
+        ("approved_by", invoice.approved_by_id),
+    ):
+        if user_id:
+            actor = session.get(User, user_id)
+            if actor:
+                setattr(
+                    public,
+                    attr,
+                    UserBasic(
+                        id=actor.id, full_name=actor.full_name, email=actor.email
+                    ),
+                )
     dic, iban = invoice.supplier_dic, invoice.supplier_iban
     if invoice.recipient_company_id:
         company = session.get(RecipientCompany, invoice.recipient_company_id)
@@ -550,9 +594,12 @@ def apply_parsed(invoice: Invoice, parsed: ParsedInvoice) -> None:
         "recipient_ico": parsed.recipient_ico,
         "recipient_dic": parsed.recipient_dic,
         "document_type": parsed.document_type,
+        "supplier_email": parsed.supplier_email,
+        "payment_method": parsed.payment_method,
         "issue_date": parsed.issue_date,
         "delivery_date": parsed.delivery_date,
         "due_date": parsed.due_date,
+        "kh_date": parsed.kh_date,
         "currency": parsed.currency,
         "total_price": parsed.total_price,
         "total_vat": parsed.total_vat,
@@ -595,10 +642,15 @@ def process_invoice(invoice_id: uuid.UUID) -> None:
             data = storage.get_storage().open(invoice.storage_key)
             text = parsing.extract_text(data, invoice.content_type)
             invoice.ocr_text = text or None
-            image = data if invoice.content_type != "application/pdf" else None
-            parsed = parsing.parse_invoice_text(
-                text, image=image if not text.strip() else None
-            )
+            image: bytes | None = None
+            if not text.strip():
+                if invoice.content_type == "application/pdf":
+                    # scanned pages have no text layer - show the vision model
+                    # the first page, the way an uploaded image would be sent
+                    image = parsing.render_pdf_first_page(data)
+                else:
+                    image = data
+            parsed = parsing.parse_invoice_text(text, image=image)
         except Exception as exc:  # parsing backend unavailable, broken file, ...
             parsed = None
             invoice.parse_error = str(exc)[:255]
@@ -610,18 +662,31 @@ def process_invoice(invoice_id: uuid.UUID) -> None:
             time.monotonic() - started,
             parsed is not None,
         )
-        if parsed is not None:
-            parsing.normalize_parsed(parsed)
-            apply_parsed(invoice, parsed)
-            recompute_derived(invoice)
-            assign_recipient_company(session, invoice)
-            # lazy import: account_integrity uses log_audit from this module
-            from app.services import account_integrity
+        try:
+            if parsed is not None:
+                parsing.normalize_parsed(parsed)
+                apply_parsed(invoice, parsed)
+                recompute_derived(invoice)
+                assign_recipient_company(session, invoice)
+                # lazy import: account_integrity uses log_audit from this module
+                from app.services import account_integrity
 
-            account_integrity.upsert_from_invoice(session, invoice)
-        else:
-            if not invoice.parse_error:
+                try:
+                    account_integrity.upsert_from_invoice(session, invoice)
+                except Exception:
+                    # a missing supplier account ledger is no reason to drop
+                    # the parsed document out of the queue
+                    logger.exception(
+                        "Invoice %s: supplier account ledger failed", invoice_id
+                    )
+            elif not invoice.parse_error:
                 invoice.parse_error = "Nepodařilo se strukturovat obsah dokladu"
+        except Exception as exc:
+            # never leave the invoice in PARSING - the UI would wait forever
+            logger.exception("Invoice %s: storing the parse result failed", invoice_id)
+            session.rollback()
+            invoice = session.get(Invoice, invoice_id)
+            invoice.parse_error = f"Chyba při ukládání výsledku parsování: {exc}"[:255]
         change_state(
             session, invoice, InvoiceState.NEEDS_REVIEW, note=invoice.parse_error
         )
@@ -643,3 +708,39 @@ def reparse(session: Session, invoice: Invoice) -> Invoice:
     session.add(invoice)
     session.commit()
     return invoice
+
+
+def recover_stuck_invoices() -> int:
+    """Re-queue documents whose background parsing was cut off by a restart.
+
+    Without this they would wait in UPLOADED/PARSING forever: the background
+    task that was working on them is gone and nothing else picks them up.
+    Returns the number of documents put back into the queue.
+    """
+    with Session(engine) as session:
+        stuck = session.exec(
+            select(Invoice).where(
+                Invoice.state.in_(  # type: ignore[attr-defined]
+                    [InvoiceState.UPLOADED.value, InvoiceState.PARSING.value]
+                )
+            )
+        ).all()
+        invoice_ids = [invoice.id for invoice in stuck]
+        for invoice in stuck:
+            invoice.state = InvoiceState.UPLOADED.value
+            session.add(invoice)
+        session.commit()
+    if invoice_ids:
+        logger.info("re-queueing %d interrupted document(s)", len(invoice_ids))
+        threading.Thread(
+            target=_process_after_restart, args=(invoice_ids,), daemon=True
+        ).start()
+    return len(invoice_ids)
+
+
+def _process_after_restart(invoice_ids: list[uuid.UUID]) -> None:
+    for invoice_id in invoice_ids:
+        try:
+            process_invoice(invoice_id)  # opens its own session
+        except Exception:
+            logger.exception("Invoice %s: recovery parsing failed", invoice_id)

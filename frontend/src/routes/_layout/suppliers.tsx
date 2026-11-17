@@ -37,12 +37,6 @@ function Suppliers() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {t("suppliers.title")}
-        </h1>
-        <p className="text-muted-foreground">{t("suppliers.subtitle")}</p>
-      </div>
       <form
         className="relative max-w-md"
         onSubmit={(e) => {

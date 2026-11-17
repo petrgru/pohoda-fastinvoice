@@ -34,10 +34,12 @@ test.describe("Supplier registry", () => {
       page.getByRole("heading", { name: "Dodavatelé" }),
     ).toBeVisible()
 
-    // the imported invoice registered its vendor
+    // the imported invoice registered its vendor (filter by IČO – the LLM
+    // puts the number either in the name cell or in the IČO column)
     await page.getByTestId("supplier-search-input").fill(ico)
-    const row = page.locator("tr", { hasText: name })
+    const row = page.locator("tr", { hasText: ico })
     await expect(row).toBeVisible({ timeout: 15_000 })
+    await expect(row).toContainText("E2E Dodavatel")
 
     // open the manage dialog and confirm the parsed account as verified.
     // The dialog is re-opened when a background list refresh remounts the
@@ -87,6 +89,12 @@ test.describe("Supplier registry", () => {
     await waitForParsed(invoice.id, 720_000)
 
     await page.goto(`/invoices/${invoice.id}`)
+    // the account fields live in the collapsible panel – open it when closed
+    const accountsToggle = page.getByTestId("accounts-toggle")
+    await expect(accountsToggle).toBeVisible({ timeout: 15_000 })
+    if ((await accountsToggle.getAttribute("aria-expanded")) === "false") {
+      await accountsToggle.click()
+    }
     const accountInput = page.getByTestId("supplier-bank-account-input")
     await expect(accountInput).toBeVisible({ timeout: 15_000 })
 
@@ -114,6 +122,14 @@ test.describe("Supplier registry", () => {
     await expect(dialog).toBeHidden({ timeout: 15_000 })
     // the amber "differs from the document" warning now stays on the page
     await expect(page.getByTestId("account-doc-warning")).toBeVisible()
+    // the mismatch also expands the accounts panel and marks the fields red
+    await expect(page.getByTestId("accounts-toggle")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    )
+    await expect(page.getByTestId("supplier-bank-account-input")).toHaveClass(
+      /border-destructive/,
+    )
     // the tampered account is what the stored invoice now carries
     const saved = await getInvoice(invoice.id)
     expect(saved.supplier_bank_account).toBe("888888888/0300")

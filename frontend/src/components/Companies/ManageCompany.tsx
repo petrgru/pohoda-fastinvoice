@@ -150,7 +150,9 @@ function ApiKeyRow({
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium">{keyItem.label}</span>
         <span className="font-mono text-xs text-muted-foreground">
-          {keyItem.key_prefix}…
+          {keyItem.key_suffix
+            ? `${keyItem.key_prefix}…${keyItem.key_suffix}`
+            : `${keyItem.key_prefix}…`}
         </span>
       </div>
       <span className="text-xs text-muted-foreground">
@@ -158,21 +160,15 @@ function ApiKeyRow({
           ? `${t("manage.lastUsed")}: ${formatDate(keyItem.last_used_at)}`
           : t("manage.neverUsed")}
       </span>
-      {keyItem.revoked_at ? (
-        <Badge variant="outline" className="text-muted-foreground">
-          {t("manage.revoked")}
-        </Badge>
-      ) : (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-destructive"
-          onClick={() => revoke.mutate()}
-          data-testid={`api-key-revoke-${keyItem.id}`}
-        >
-          {t("manage.revoke")}
-        </Button>
-      )}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-destructive"
+        onClick={() => revoke.mutate()}
+        data-testid={`api-key-revoke-${keyItem.id}`}
+      >
+        {t("manage.revoke")}
+      </Button>
     </div>
   )
 }
@@ -190,6 +186,7 @@ export function ManageCompany({
   const [role, setRole] = useState<"admin" | "editor">("editor")
   const [label, setLabel] = useState("")
   const [newKey, setNewKey] = useState<string | null>(null)
+  const [confirmRotate, setConfirmRotate] = useState(false)
 
   const canManage = company.my_role === "admin"
 
@@ -232,7 +229,12 @@ export function ManageCompany({
   const createKey = useMutation({
     mutationFn: () =>
       CompaniesService.createApiKey({
-        body: { label },
+        body: {
+          label:
+            label.trim() ||
+            (keys.data ?? []).find((item) => !item.revoked_at)?.label ||
+            t("manage.keyDefaultLabel"),
+        },
         path: { recipient_company_id: company.id },
       }),
     onSuccess: (created) => {
@@ -250,7 +252,16 @@ export function ManageCompany({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        setOpen(value)
+        if (!value) {
+          setNewKey(null)
+          setConfirmRotate(false)
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <button
           type="button"
@@ -335,46 +346,95 @@ export function ManageCompany({
             ))}
             {newKey && (
               <div
-                className="flex items-center gap-2 rounded-md border border-dashed p-2"
+                className="flex flex-col gap-1 rounded-md border border-dashed p-2"
                 data-testid="manage-new-key"
               >
-                <code className="min-w-0 flex-1 truncate font-mono text-xs">
-                  {newKey}
-                </code>
+                <div className="flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate font-mono text-xs">
+                    {newKey}
+                  </code>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={copyKey}
+                  >
+                    {t("manage.copy")}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("manage.keyOnceHint")}
+                </p>
+              </div>
+            )}
+            {(keys.data ?? []).some((item) => !item.revoked_at) ? (
+              confirmRotate ? (
+                <div
+                  className="flex items-center gap-2 pt-1"
+                  data-testid="manage-rotate-confirm-row"
+                >
+                  <span className="flex-1 text-xs text-muted-foreground">
+                    {t("manage.rotateConfirm")}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={createKey.isPending}
+                    data-testid="manage-rotate-confirm"
+                    onClick={() => {
+                      createKey.mutate()
+                      setConfirmRotate(false)
+                    }}
+                  >
+                    {t("manage.rotateKey")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setConfirmRotate(false)}
+                  >
+                    {t("common.cancel")}
+                  </Button>
+                </div>
+              ) : (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={copyKey}
+                  className="self-start"
+                  data-testid="manage-rotate-key"
+                  onClick={() => setConfirmRotate(true)}
                 >
-                  {t("manage.copy")}
+                  {t("manage.rotateKey")}
                 </Button>
-              </div>
-            )}
-            <form
-              className="flex items-center gap-2 pt-1"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (label.trim()) createKey.mutate()
-              }}
-            >
-              <Input
-                required
-                value={label}
-                onChange={(event) => setLabel(event.target.value)}
-                placeholder={t("manage.keyLabelPlaceholder")}
-                className="min-w-40 flex-1"
-                data-testid="manage-key-label"
-              />
-              <Button
-                type="submit"
-                size="sm"
-                disabled={createKey.isPending}
-                data-testid="manage-key-create"
+              )
+            ) : (
+              <form
+                className="flex items-center gap-2 pt-1"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (label.trim()) createKey.mutate()
+                }}
               >
-                {t("manage.createKey")}
-              </Button>
-            </form>
+                <Input
+                  required
+                  value={label}
+                  onChange={(event) => setLabel(event.target.value)}
+                  placeholder={t("manage.keyLabelPlaceholder")}
+                  className="min-w-40 flex-1"
+                  data-testid="manage-key-label"
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={createKey.isPending}
+                  data-testid="manage-key-create"
+                >
+                  {t("manage.createKey")}
+                </Button>
+              </form>
+            )}
           </section>
         )}
       </DialogContent>

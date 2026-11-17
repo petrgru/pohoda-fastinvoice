@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import useAuth from "@/hooks/useAuth"
+import { useActiveCompany } from "@/hooks/useActiveCompany"
 
 export const Route = createFileRoute("/_layout/")({
   component: Dashboard,
@@ -52,7 +52,8 @@ function periodLabel(period: string, granularity: Granularity) {
 
 function Dashboard() {
   const { t } = useTranslation()
-  const { user: currentUser } = useAuth()
+  const { activeCompany } = useActiveCompany()
+  const company = activeCompany?.id
   const [granularity, setGranularity] = useState<Granularity>("day")
   const [search, setSearch] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
@@ -64,18 +65,28 @@ function Dashboard() {
   }, [search])
 
   const { data: stats } = useQuery({
-    queryKey: ["invoice-stats"],
-    queryFn: async () => (await InvoicesService.invoiceStats()).data,
+    queryKey: ["invoice-stats", company ?? null],
+    queryFn: async () =>
+      (
+        await InvoicesService.invoiceStats({
+          query: { recipient_company_id: company ?? undefined },
+        })
+      ).data,
     refetchInterval: 15_000,
   })
 
   const { data: found } = useQuery({
-    queryKey: ["dashboard-search", searchTerm],
+    queryKey: ["dashboard-search", searchTerm, company ?? null],
     enabled: searchTerm.trim().length > 0,
     queryFn: async () =>
       (
         await InvoicesService.listInvoices({
-          query: { skip: 0, limit: 10, q: searchTerm },
+          query: {
+            skip: 0,
+            limit: 10,
+            q: searchTerm,
+            recipient_company_id: company ?? undefined,
+          },
         })
       ).data,
   })
@@ -86,15 +97,6 @@ function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl truncate max-w-sm">
-          {t("dashboard.greeting", {
-            name: currentUser?.full_name || currentUser?.email || "",
-          })}
-        </h1>
-        <p className="text-muted-foreground">{t("dashboard.welcome")}</p>
-      </div>
-
       <div className="flex flex-col gap-3">
         <h2 className="font-semibold">{t("stats.searchTitle")}</h2>
         <form
