@@ -167,9 +167,10 @@
     "requeued": "The document was queued for import again",
     "duplicateTitle": "Possible duplicate",
     "duplicateText": "The same document number from this supplier already exists:",
-    "duplicateApproveText": "This document has the same number as one already approved for import. Approving deletes the older records – only this one stays.",
-    "duplicateLockedText": "The same document is already imported in the accounting system. The duplicate cannot be approved and the original cannot be deleted – delete this record or check the document number.",
-    "duplicateApproveButton": "Approve and delete the original"
+    "duplicateApproveText": "The same document is already approved for import. Approving it again would book it twice – delete this duplicate or replace the original record.",
+    "duplicateLockedText": "The same document is already imported in the accounting system and cannot be modified. This duplicate does not belong here – delete it.",
+    "duplicateApproveButton": "Approve and replace the original",
+    "duplicateDeleteButton": "Delete this duplicate"
   },
   "companies": {
     "title": "Our companies",

@@ -977,6 +977,52 @@ test.describe("Invoice workflow", () => {
     }
   })
 
+  test("a duplicate can be dropped without touching the approved original", async ({
+    page,
+  }) => {
+    test.slow()
+    test.setTimeout(420_000)
+    const stamp = Date.now()
+    const company = await createCompany(`DUPKEEP ${stamp}`)
+    const lines = [
+      `Faktura DUPK${stamp}`,
+      "Dodavatel: Ponechany Dodavatel s.r.o.",
+      "Celkem 1210,00 Kc",
+    ]
+    const original = await uploadInvoice(lines)
+    const duplicate = await uploadInvoice(lines)
+    try {
+      await waitForParsed(original.id)
+      await waitForParsed(duplicate.id)
+
+      await page.goto(`/invoices/${original.id}`)
+      await page.getByTestId("company-select").click()
+      await page.getByRole("option", { name: company.name }).click()
+      await page.getByTestId("approve-button").click()
+      await expect(page.getByTestId("state-badge")).toHaveText("K exportu", {
+        timeout: 10_000,
+      })
+
+      // the dialog's primary choice drops the record at hand only
+      await page.goto(`/invoices/${duplicate.id}`)
+      await page.getByTestId("company-select").click()
+      await page.getByRole("option", { name: company.name }).click()
+      await page.getByTestId("approve-button").click()
+      await expect(page.getByTestId("duplicate-dialog")).toBeVisible()
+      await page.getByTestId("duplicate-dialog-delete").click()
+      await expect(page.getByTestId("upload-invoice-button")).toBeVisible({
+        timeout: 10_000,
+      })
+
+      expect(await tryDeleteInvoice(duplicate.id)).toBe(404)
+      expect((await getInvoice(original.id)).state).toBe("ready_for_export")
+    } finally {
+      await tryDeleteInvoice(original.id)
+      await tryDeleteInvoice(duplicate.id)
+      await deleteCompaniesByName(`DUPKEEP ${stamp}`)
+    }
+  })
+
   test("switches the UI language and remembers the choice", async ({
     page,
   }) => {

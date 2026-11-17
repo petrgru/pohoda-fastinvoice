@@ -384,6 +384,19 @@ function InvoiceDetail() {
     onError: handleError.bind(showErrorToast),
   })
 
+  // offered by the duplicate dialog: the record at hand is the noise copy
+  const deleteMutation = useMutation({
+    mutationKey: ["deleteInvoice", invoiceId],
+    mutationFn: () =>
+      InvoicesService.deleteInvoice({ path: { invoice_id: invoiceId } }),
+    onSuccess: () => {
+      showSuccessToast(t("invoice.deleted"))
+      invalidate()
+      navigate({ to: "/invoices" })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
   const unapproveMutation = useMutation({
     mutationFn: () =>
       InvoicesService.unapproveInvoice({ path: { invoice_id: invoiceId } }),
@@ -1431,6 +1444,7 @@ function InvoiceDetail() {
             </Button>
             {!duplicatesLocked && (
               <LoadingButton
+                variant="outline"
                 loading={approveMutation.isPending}
                 data-testid="duplicate-dialog-approve"
                 onClick={() => {
@@ -1441,6 +1455,17 @@ function InvoiceDetail() {
                 {t("invoice.duplicateApproveButton")}
               </LoadingButton>
             )}
+            <LoadingButton
+              variant="destructive"
+              loading={deleteMutation.isPending}
+              data-testid="duplicate-dialog-delete"
+              onClick={() => {
+                setDuplicateDialogOpen(false)
+                deleteMutation.mutate()
+              }}
+            >
+              {t("invoice.duplicateDeleteButton")}
+            </LoadingButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

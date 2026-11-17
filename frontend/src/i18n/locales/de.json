@@ -167,9 +167,10 @@
     "requeued": "Der Beleg wurde erneut zum Import eingereiht",
     "duplicateTitle": "Mögliches Duplikat",
     "duplicateText": "Die gleiche Belegnummer desselben Lieferanten existiert bereits:",
-    "duplicateApproveText": "Dieser Beleg hat dieselbe Nummer wie ein bereits zum Import genehmigter Beleg. Bei der Genehmigung werden die älteren Datensätze gelöscht – nur dieser bleibt erhalten.",
-    "duplicateLockedText": "Der gleiche Beleg ist bereits im Buchhaltungssystem importiert. Das Duplikat kann nicht genehmigt und das Original nicht gelöscht werden – löschen Sie diesen Datensatz oder prüfen Sie die Belegnummer.",
-    "duplicateApproveButton": "Genehmigen und Original löschen"
+    "duplicateApproveText": "Der gleiche Beleg ist bereits zum Import genehmigt. Eine weitere Genehmigung würde ihn doppelt buchen – löschen Sie dieses Duplikat oder ersetzen Sie den Originaldatensatz.",
+    "duplicateLockedText": "Der gleiche Beleg ist bereits im Buchhaltungssystem importiert und kann nicht geändert werden. Dieses Duplikat gehört nicht hierher – löschen Sie es.",
+    "duplicateApproveButton": "Genehmigen und Original ersetzen",
+    "duplicateDeleteButton": "Dieses Duplikat löschen"
   },
   "companies": {
     "title": "Unsere Firmen",

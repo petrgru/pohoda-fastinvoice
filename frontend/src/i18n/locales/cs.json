@@ -167,9 +167,10 @@
     "requeued": "Doklad byl znovu zařazen k importu",
     "duplicateTitle": "Může jít o duplikát",
     "duplicateText": "Stejné číslo dokladu od stejného dodavatele už v systému existuje:",
-    "duplicateApproveText": "Tento doklad má shodné číslo jako doklad už schválený k importu. Schválením se starší záznamy smažou – v systému zůstane jen tento.",
-    "duplicateLockedText": "Stejný doklad je už importovaný v účetním systému. Duplikát nelze schválit a originál nelze smazat – smažte tento záznam, nebo zkontrolujte číslo dokladu.",
-    "duplicateApproveButton": "Schválit a smazat originál"
+    "duplicateApproveText": "Stejný doklad už je schválený k importu. Schválením by se zaúčtoval dvakrát – smažte tento duplikát, nebo nahraďte původní záznam.",
+    "duplicateLockedText": "Stejný doklad je už importovaný v účetním systému a nelze do něj zasahovat. Tento duplikát sem nepatří – smažte jej.",
+    "duplicateApproveButton": "Schválit a nahradit originál",
+    "duplicateDeleteButton": "Smazat tento duplikát"
   },
   "companies": {
     "title": "Naše firmy",
