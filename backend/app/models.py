@@ -264,6 +264,22 @@ DELETABLE_STATES = {
 }
 
 
+class SupplierRegistryStatus(str, enum.Enum):  # noqa: UP042 - str mixin needed for DB values
+    """Registry verification lifecycle of a supplier (see app.services.registry).
+
+    PENDING/NOT_FOUND gate the connector export until the registry confirms the
+    company; NOT_CHECKABLE (no identifier at all) never blocks, ICO_INVALID is
+    a data-quality warning only. Terminal-ish states still get re-checked
+    periodically so a later insolvency is discovered.
+    """
+
+    PENDING = "pending"
+    VERIFIED = "verified"
+    NOT_FOUND = "not_found"
+    ICO_INVALID = "ico_invalid"
+    NOT_CHECKABLE = "not_checkable"
+
+
 class RecipientCompanyBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     ico: str = Field(unique=True, index=True, max_length=8)
@@ -397,6 +413,25 @@ class Supplier(SQLModel, table=True):
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
     updated_at: datetime | None = Field(default_factory=get_datetime_utc)
 
+    # --- registry verification (app.services.registry) -------------------------
+    registry_status: str = Field(
+        default=SupplierRegistryStatus.NOT_CHECKABLE.value, index=True, max_length=20
+    )
+    in_insolvency: bool = False
+    # insolvency register details: court, file number, date - verbatim from ARES
+    insolvency_info: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    # ADIS: listed as an unreliable VAT payer (nespolehlivý plátce) - warning only
+    unreliable_payer: bool = False
+    # enrichment snapshot from the registry: name, registered office, legal
+    # form, VAT payer flag, published accounts and how ours compare
+    registry_data: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    registry_checked_at: datetime | None = None
+    # scheduling for the maintenance job (backoff + periodic insolvency recheck)
+    registry_next_check_at: datetime | None = None
+    registry_check_attempts: int = 0
+    # admin release of the export gate despite a confirmed insolvency
+    export_confirmed_manually: bool = False
+
 
 class SupplierPublic(SQLModel):
     id: uuid.UUID
@@ -407,6 +442,13 @@ class SupplierPublic(SQLModel):
     erp_remote_id: str | None = None
     invoice_count: int = 0
     last_invoice_at: datetime | None = None
+    registry_status: str = SupplierRegistryStatus.NOT_CHECKABLE.value
+    in_insolvency: bool = False
+    insolvency_info: dict[str, Any] | None = None
+    unreliable_payer: bool = False
+    registry_data: dict[str, Any] | None = None
+    registry_checked_at: datetime | None = None
+    export_confirmed_manually: bool = False
 
 
 class SuppliersPublic(SQLModel):
@@ -960,6 +1002,9 @@ class InvoicePublic(SQLModel):
     erp_error_message: str | None = None
     export_retry_count: int = 0
     export_claimed_at: datetime | None = None
+    # registry gate: set while the connector must not pick the invoice up
+    # ("registry_pending" | "registry_not_found" | "supplier_insolvency")
+    export_block_reason: str | None = None
     # Fraud-detection hints: account vs. the parsed document / supplier history
     account_matches_document: bool | None = None
     account_matches_supplier: bool | None = None

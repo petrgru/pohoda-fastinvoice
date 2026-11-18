@@ -222,7 +222,22 @@
     "docNumber": "Doklad",
     "total": "Celkem",
     "createdAt": "Import",
-    "saved": "Dodavatel uložen"
+    "saved": "Dodavatel uložen",
+    "colRegistry": "Registr",
+    "registryPending": "Čeká na ověření",
+    "registryVerified": "Ověřeno",
+    "registryNotFound": "Neznámé IČO",
+    "registryIcoInvalid": "Neplatné IČO",
+    "insolvency": "V úpadku",
+    "unreliablePayer": "Nespolehlivý plátce",
+    "registrySection": "Ověření rejstříku",
+    "registryChecked": "Naposledy zkontrolováno",
+    "registryNever": "Zatím nekontrolováno",
+    "registryNameSuggestion": "Registr uvádí: {name}, {address}",
+    "recheck": "Zkontrolovat znovu",
+    "rechecked": "Kontrola spuštěna",
+    "confirmExport": "Povolit import navzdory úpadku",
+    "exportConfirmed": "Import povolen ručně"
   },
   "companyFields": {
     "name": "Název",
@@ -275,7 +290,10 @@
       "missingDueDate": "Chybí datum splatnosti",
       "missingTaxDate": "Chybí datum zdanitelného plnění",
       "export_in_progress": "Doklad právě odesílá účetní konektor",
-      "duplicate": "Stejné číslo dokladu už existuje: {{detail}}"
+      "duplicate": "Stejné číslo dokladu už existuje: {{detail}}",
+      "registry_pending": "Dodavatel čeká na ověření v registru firem",
+      "registry_not_found": "IČO dodavatele se v registru nenašlo",
+      "supplier_insolvency": "Dodavatel je v insolvenci – potvrğte import ručně"
     },
     "colAction": "Akce"
   },

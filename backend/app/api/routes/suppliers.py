@@ -10,10 +10,13 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import ColumnElement, func
 from sqlmodel import Session, col, or_, select
 
+from app import tasks as task_queue
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
     Invoice,
     InvoicesPublic,
+    MembershipRole,
+    RecipientMembership,
     Supplier,
     SupplierKnownAccount,
     SupplierPublic,
@@ -23,7 +26,7 @@ from app.models import (
     get_datetime_utc,
 )
 from app.services import invoices as invoice_service
-from app.services import recipient_access
+from app.services import recipient_access, registry
 
 router = APIRouter(prefix="/suppliers", tags=["suppliers"])
 
@@ -82,6 +85,13 @@ def _public(session: Session, supplier: Supplier, *, user: User) -> SupplierPubl
         ],
         invoice_count=int(count or 0),
         last_invoice_at=last,
+        registry_status=supplier.registry_status,
+        in_insolvency=supplier.in_insolvency,
+        insolvency_info=supplier.insolvency_info,
+        unreliable_payer=supplier.unreliable_payer,
+        registry_data=supplier.registry_data,
+        registry_checked_at=supplier.registry_checked_at,
+        export_confirmed_manually=supplier.export_confirmed_manually,
     )
 
 
@@ -127,6 +137,69 @@ def get_supplier(
     supplier_id: UUID,
 ) -> SupplierPublic:
     supplier = _get_supplier_or_404(session, current_user, supplier_id)
+    return _public(session, supplier, user=current_user)
+
+
+@router.post("/{supplier_id}/registry-recheck", response_model=SupplierPublic)
+def recheck_registry(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    supplier_id: UUID,
+) -> SupplierPublic:
+    """Ask the registries again now (e.g. after fixing a typo in the IČO)."""
+    supplier = _get_supplier_or_404(session, current_user, supplier_id)
+    supplier.registry_status = registry.initial_status(supplier)
+    supplier.registry_check_attempts = 0
+    supplier.registry_next_check_at = None
+    session.add(supplier)
+    task_queue.enqueue_supplier_check(session, supplier)
+    session.commit()
+    session.refresh(supplier)
+    return _public(session, supplier, user=current_user)
+
+
+def _require_registry_admin(session: Session, user: User, supplier: Supplier) -> None:
+    """Releasing the insolvency gate is an ADMIN decision for a company that
+    actually receives invoices from this supplier (or a superuser)."""
+    if user.is_superuser:
+        return
+    admin_company = select(RecipientMembership.recipient_company_id).where(
+        col(RecipientMembership.user_id) == user.id,
+        col(RecipientMembership.role) == MembershipRole.ADMIN.value,
+    )
+    linked = session.exec(
+        select(Invoice.id)
+        .where(
+            col(Invoice.recipient_company_id).in_(admin_company),
+            or_(
+                col(Invoice.supplier_ico) == supplier.ico,
+                col(Invoice.supplier_name) == supplier.name,
+            ),
+        )
+        .limit(1)
+    ).first()
+    if linked is None:
+        raise HTTPException(
+            status_code=403, detail="The user doesn't have enough privileges"
+        )
+
+
+@router.post("/{supplier_id}/confirm-export", response_model=SupplierPublic)
+def confirm_export(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    supplier_id: UUID,
+) -> SupplierPublic:
+    """Admin release: import invoices despite a confirmed insolvency."""
+    supplier = _get_supplier_or_404(session, current_user, supplier_id)
+    _require_registry_admin(session, current_user, supplier)
+    supplier.export_confirmed_manually = True
+    supplier.updated_at = get_datetime_utc()
+    session.add(supplier)
+    session.commit()
+    session.refresh(supplier)
     return _public(session, supplier, user=current_user)
 
 

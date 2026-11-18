@@ -213,3 +213,69 @@ def test_account_matches_document_flag(
         f"/api/v1/invoices/{invoice.id}", headers=superuser_token_headers
     ).json()
     assert detail["account_matches_document"] is False
+
+
+def test_registry_recheck_exposes_verified_status(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+    monkeypatch,
+):
+    from app.core.config import settings
+    from app.services import registry
+
+    monkeypatch.setattr(settings, "REGISTRY_ENABLED", True)
+    supplier = _supplier(db, registry_status="not_found")
+
+    def fake_refresh(s: Supplier) -> bool:
+        s.registry_status = "verified"
+        s.registry_data = {"source": "ares", "name": s.name}
+        return True
+
+    monkeypatch.setattr(registry, "refresh_supplier", fake_refresh)
+    response = client.post(
+        f"{API}/{supplier.id}/registry-recheck", headers=superuser_token_headers
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["registry_status"] == "verified"
+    assert body["registry_data"]["source"] == "ares"
+
+
+def test_confirm_export_needs_admin_of_a_receiving_company(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    superuser_token_headers: dict[str, str],
+    db: Session,
+):
+    """An EDITOR who sees the supplier may not release the insolvency gate."""
+    from sqlmodel import select
+
+    from app.core.config import settings
+    from app.models import MembershipRole, RecipientMembership
+
+    supplier = _supplier(db, name="Upadkovy dodavatel a.s.", in_insolvency=True)
+    company = create_company(db)
+    create_invoice(
+        db, supplier_ico=supplier.ico, supplier_name=supplier.name, company=company
+    )
+    user = db.exec(select(User).where(User.email == settings.EMAIL_TEST_USER)).one()
+    db.add(
+        RecipientMembership(
+            user_id=user.id,
+            recipient_company_id=company.id,
+            role=MembershipRole.EDITOR.value,
+        )
+    )
+    db.commit()
+
+    response = client.post(
+        f"{API}/{supplier.id}/confirm-export", headers=normal_user_token_headers
+    )
+    assert response.status_code == 403
+
+    response = client.post(
+        f"{API}/{supplier.id}/confirm-export", headers=superuser_token_headers
+    )
+    assert response.status_code == 200
+    assert response.json()["export_confirmed_manually"] is True

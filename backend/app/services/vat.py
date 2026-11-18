@@ -1,8 +1,13 @@
-"""VAT (DIČ) validation and company lookup via the VatComply API.
+"""VAT (DIČ) validation against the official VIES service.
 
-Replaces the old mod-11 checksum rule – EU VAT numbers are checked against
-the official VIES database. The service needs no API key but is rate limited
-(2 req/s), so results are cached in memory for a while.
+Replaces the old mod-11 checksum rule and the VatComply proxy that reported
+Czech payers as invalid (VAT-comply.cz was a rate-limited middleman over the
+same VIES data with its own outages). A bare domestic DIČ (no country prefix)
+identifies a non-payer - VIES cannot validate those, so they are accepted and
+left to the registry verification (app.services.registry) for existence.
+
+Results are cached in memory for a while; an unreachable VIES means
+"unavailable" (fail-open) so saving a company never depends on an EU service.
 """
 
 from __future__ import annotations
@@ -16,15 +21,16 @@ import httpx
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.services import registry
 
 # country code + 8-12 alphanumerics (CZ: CZ + 8 digits) or bare 8-10 digits
 _VAT_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{8,12}$|^\d{8,10}$")
 
-# dic -> (expiry timestamp, result); tiny LRU-ish cache against the rate limit
+# dic -> (expiry timestamp, result); tiny cache against the rate limit
 _cache: dict[str, tuple[float, VatResult]] = {}
 _CACHE_TTL_SECONDS = 86_400  # VAT registrations change rarely
 _CACHE_MAX_ENTRIES = 256
-# one fetch per DIČ at a time – concurrent requests (autofill + save) share it
+# one fetch per DIČ at a time - concurrent requests (autofill + save) share it
 _fetch_locks: dict[str, threading.Lock] = {}
 _fetch_locks_guard = threading.Lock()
 
@@ -34,12 +40,13 @@ class VatResult(BaseModel):
     name: str | None = None
     address: str | None = None
     country_code: str | None = None
+    request_identifier: str | None = None
     # True when the external service could not be reached (fail-open)
     unavailable: bool = False
 
 
 class VatServiceUnavailableError(RuntimeError):
-    """Raised when VatComply/VIES cannot be consulted."""
+    """Raised when VIES cannot be consulted."""
 
 
 class VatInvalidError(ValueError):
@@ -54,16 +61,18 @@ def is_valid_format(dic: str) -> bool:
     return bool(_VAT_RE.match(normalize_dic(dic)))
 
 
-def _fetch(dic: str) -> dict[str, Any]:
-    """One VatComply request; raises httpx.HTTPError on failure."""
-    url = f"{settings.VATCOMPLY_BASE_URL.rstrip('/')}/vat"
-    response = httpx.get(
-        url,
-        params={"vat_number": dic},
-        timeout=settings.VATCOMPLY_TIMEOUT_SECONDS,
-    )
-    response.raise_for_status()
-    return dict(response.json())
+def _fetch(dic: str) -> Any:
+    """One VIES checkVat round-trip via the shared provider, as a plain dict."""
+    record = registry.ViesProvider(dic).check()
+    if record is None:
+        return {"valid": False}
+    return {
+        "valid": True,
+        "name": record.name,
+        "address": record.address,
+        "country_code": dic[:2],
+        "request_identifier": record.raw.get("vies_request_identifier"),
+    }
 
 
 def lookup_vat(dic: str) -> VatResult:
@@ -71,7 +80,10 @@ def lookup_vat(dic: str) -> VatResult:
     dic = normalize_dic(dic)
     if not is_valid_format(dic):
         return VatResult(valid=False)
-    if not settings.VATCOMPLY_ENABLED:
+    if not settings.REGISTRY_ENABLED:
+        return VatResult(valid=True, unavailable=True)
+    if not re.match(r"^[A-Z]{2}\d{8,12}$", dic):
+        # domestic-only DIČ (non-payer): outside VIES scope, nothing to check
         return VatResult(valid=True, unavailable=True)
     cached = _cache.get(dic)
     if cached and cached[0] > time.monotonic():
@@ -84,21 +96,19 @@ def lookup_vat(dic: str) -> VatResult:
         if cached and cached[0] > time.monotonic():
             return cached[1]
         try:
-            data = _fetch(dic)
-        except httpx.HTTPStatusError as exc:
-            # 503 / transient VIES faults -> fail-open; other 4xx -> as unknown
-            if exc.response.status_code in (400, 404):
-                result = VatResult(valid=False)
-            else:
-                return VatResult(valid=True, unavailable=True)
-        except httpx.HTTPError, ValueError:
+            data: dict[str, Any] = _fetch(dic)
+        except registry.RegistryUnavailableError, httpx.HTTPError:
+            # transport faults and member-state errors -> fail-open
             return VatResult(valid=True, unavailable=True)
+        except ValueError:
+            return VatResult(valid=False)
         else:
             result = VatResult(
                 valid=bool(data.get("valid", False)),
                 name=(data.get("name") or "").strip() or None,
                 address=(data.get("address") or "").strip() or None,
                 country_code=data.get("country_code"),
+                request_identifier=data.get("request_identifier"),
             )
         if len(_cache) >= _CACHE_MAX_ENTRIES:
             _cache.clear()
@@ -111,6 +121,7 @@ def check_dic_or_raise(dic: str) -> VatResult | None:
 
     * format-invalid or VIES-invalid -> VatInvalidError (save is blocked)
     * service unreachable -> log-and-continue (fail-open), result or None
+    * domestic-only DIČ -> accepted (see module docstring)
     """
     result = lookup_vat(dic)
     if result.unavailable:

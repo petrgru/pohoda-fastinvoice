@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, RefreshCw, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
+
+import { RegistryBadges } from "./RegistryBadge"
 
 type AccountRow = { account: string; iban: string; confirmed: boolean }
 
@@ -90,6 +92,34 @@ export function ManageSupplier({ supplier }: { supplier: SupplierPublic }) {
       rows.map((row, i) => (i === index ? { ...row, ...patch } : row)),
     )
 
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["suppliers"] })
+
+  const recheck = useMutation({
+    mutationFn: () =>
+      SuppliersService.recheckRegistry({ path: { supplier_id: supplier.id } }),
+    onSuccess: () => {
+      showSuccessToast(t("suppliers.rechecked"))
+      invalidate()
+      setIsOpen(false)
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const confirmExport = useMutation({
+    mutationFn: () =>
+      SuppliersService.confirmExport({ path: { supplier_id: supplier.id } }),
+    onSuccess: () => {
+      showSuccessToast(t("suppliers.exportConfirmed"))
+      invalidate()
+      setIsOpen(false)
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
+  const registryName = supplier.registry_data?.name as string | undefined
+  const registryAddress = supplier.registry_data?.address as string | undefined
+
   return (
     <>
       <Button
@@ -136,6 +166,53 @@ export function ManageSupplier({ supplier }: { supplier: SupplierPublic }) {
                 placeholder="CZ47123737"
                 onChange={(e) => setDic(e.target.value)}
               />
+            </div>
+            <div className="grid gap-2" data-testid="supplier-registry-section">
+              <Label>{t("suppliers.registrySection")}</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <RegistryBadges supplier={supplier} />
+                <span className="text-xs text-muted-foreground">
+                  {supplier.registry_checked_at
+                    ? `${t("suppliers.registryChecked")} ${new Date(
+                        supplier.registry_checked_at,
+                      ).toLocaleDateString()}`
+                    : t("suppliers.registryNever")}
+                </span>
+              </div>
+              {registryName && registryName !== supplier.name && (
+                <p className="text-xs text-amber-600">
+                  {t("suppliers.registryNameSuggestion", {
+                    name: registryName,
+                    address: registryAddress ?? "",
+                  })}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={recheck.isPending}
+                  data-testid="supplier-registry-recheck"
+                  onClick={() => recheck.mutate()}
+                >
+                  <RefreshCw className="mr-1 size-4" />
+                  {t("suppliers.recheck")}
+                </Button>
+                {supplier.in_insolvency &&
+                  !supplier.export_confirmed_manually && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      disabled={confirmExport.isPending}
+                      data-testid="supplier-confirm-export"
+                      onClick={() => confirmExport.mutate()}
+                    >
+                      {t("suppliers.confirmExport")}
+                    </Button>
+                  )}
+              </div>
             </div>
             <div className="grid gap-2">
               <Label>{t("suppliers.accounts")}</Label>

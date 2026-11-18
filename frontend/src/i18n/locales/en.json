@@ -222,7 +222,22 @@
     "docNumber": "Document",
     "total": "Total",
     "createdAt": "Imported",
-    "saved": "Supplier saved"
+    "saved": "Supplier saved",
+    "colRegistry": "Registry",
+    "registryPending": "Awaiting verification",
+    "registryVerified": "Verified",
+    "registryNotFound": "Unknown ICO",
+    "registryIcoInvalid": "Invalid ICO",
+    "insolvency": "Insolvent",
+    "unreliablePayer": "Unreliable VAT payer",
+    "registrySection": "Registry verification",
+    "registryChecked": "Last checked",
+    "registryNever": "Not checked yet",
+    "registryNameSuggestion": "Registry lists: {name}, {address}",
+    "recheck": "Check again",
+    "rechecked": "Check started",
+    "confirmExport": "Allow import despite insolvency",
+    "exportConfirmed": "Import manually allowed"
   },
   "companyFields": {
     "name": "Name",
@@ -275,7 +290,10 @@
       "missingDueDate": "Due date missing",
       "missingTaxDate": "Tax supply date missing",
       "export_in_progress": "The accounting connector is sending the document now",
-      "duplicate": "Same document number already exists: {{detail}}"
+      "duplicate": "Same document number already exists: {{detail}}",
+      "registry_pending": "Supplier awaiting company-registry verification",
+      "registry_not_found": "Supplier ICO not found in the registry",
+      "supplier_insolvency": "Supplier is insolvent – release the import manually"
     },
     "colAction": "Actions"
   },

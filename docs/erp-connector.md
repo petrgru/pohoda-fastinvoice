@@ -38,6 +38,13 @@ ready_for_export ──claim──▶ processing ──synced──▶ exported
 Vyzvedne další dávku (1–200). Doklady v odpovědi přejdou do `processing`;
 `SKIP LOCKED`, takže dva konektory nikdy nevezmou tentýž doklad.
 
+**Registry gate:** doklady dodavatele, který ještě nebyl potvrzen z rejstříku
+firem (stav `pending` / `not_found` – viz [development.md](../development.md)),
+se do dávky **nevezmou** a zůstanou odpočívat v `ready_for_export`. Stejně tak
+doklady dodavatele s potvrzeným úpadkem, dokud admin v UI nepovolí import
+ručně. Jde o bezpečnostní pojistku proti podvodům se změněným účtem – konektor
+se nic zvláštního učit nemusí, jen prostě tolikdokladová dávka přijde později.
+
 ```json
 {
   "company_name": "Naše Firma a.s.",

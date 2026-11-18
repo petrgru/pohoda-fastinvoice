@@ -6,6 +6,7 @@ import type { SupplierPublic } from "@/client"
 import type { DataTableFeatures } from "@/components/Common/DataTable"
 import { Badge } from "@/components/ui/badge"
 import { ManageSupplier } from "./ManageSupplier"
+import { RegistryBadges } from "./RegistryBadge"
 
 export function useSupplierColumns() {
   const { t } = useTranslation()
@@ -22,6 +23,11 @@ export function useSupplierColumns() {
         accessorKey: "ico",
         header: t("suppliers.colIco"),
         cell: ({ row }) => row.original.ico ?? "—",
+      },
+      {
+        accessorKey: "registry_status",
+        header: t("suppliers.colRegistry"),
+        cell: ({ row }) => <RegistryBadges supplier={row.original} />,
       },
       {
         accessorKey: "bank_accounts",

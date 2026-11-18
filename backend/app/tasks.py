@@ -22,6 +22,7 @@ import structlog
 from asgi_correlation_id import correlation_id
 from fastapi import BackgroundTasks
 from procrastinate import App, PsycopgConnector, RetryStrategy, exceptions
+from sqlalchemy import and_, or_
 from sqlmodel import Session, col, select
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
@@ -29,9 +30,15 @@ from app import utils as email_utils
 from app.core.config import settings
 from app.core.db import engine
 from app.core.logging import configure_logging
-from app.models import Invoice, InvoiceState, get_datetime_utc
+from app.models import (
+    Invoice,
+    InvoiceState,
+    Supplier,
+    SupplierRegistryStatus,
+    get_datetime_utc,
+)
+from app.services import adis, parsing, registry
 from app.services import invoices as invoice_service
-from app.services import parsing
 
 logger = logging.getLogger(__name__)
 slog = structlog.get_logger("app.tasks")
@@ -135,6 +142,115 @@ def rescue_stalled_parsing_job(timestamp: int) -> None:
             invoice_service.fail_transient_parse(
                 invoice.id, "parsování nedokončeno (LLM nedostupný, vyčerpány pokusy)"
             )
+
+
+@app.task(name="check_supplier_registry", queue="maintenance")
+def check_supplier_registry_task(
+    supplier_id: str, request_id: str | None = None
+) -> None:
+    """First-time verification of one supplier, right after it is registered."""
+    clear_contextvars()
+    bind_contextvars(
+        supplier_id=supplier_id,
+        **({"correlation_id": request_id} if request_id else {}),
+    )
+    try:
+        with Session(engine) as session:
+            supplier = session.get(Supplier, uuid.UUID(supplier_id))
+            if supplier is None:
+                return
+            try:
+                registry.refresh_supplier(supplier)
+            except registry.RegistryUnavailableError:
+                registry.schedule_retry(supplier)
+            except ValueError:
+                logger.exception("registry lookup for %s", supplier_id)
+            session.add(supplier)
+            session.commit()
+    finally:
+        clear_contextvars()
+
+
+@app.periodic(cron="*/10 * * * *")
+@app.task(name="registry_checks", queue="maintenance")
+def registry_checks_job(timestamp: int) -> None:
+    """Verify due suppliers against ARES/VIES; hold exports until confirmed.
+
+    Picks suppliers whose next check is due (never-checked, backing off, or
+    past the insolvency re-check window). A registry outage leaves the status
+    untouched - the supplier keeps its PENDING gate and retries on the next
+    pass, so a flaky registry never wrongly releases or blocks an invoice.
+    """
+    if not settings.REGISTRY_ENABLED:
+        return
+    logger.info("registry_checks pass @ %s", timestamp)
+    now = get_datetime_utc()
+    fresh = and_(
+        col(Supplier.registry_status).in_(
+            [
+                SupplierRegistryStatus.PENDING.value,
+                SupplierRegistryStatus.NOT_FOUND.value,
+            ]
+        ),
+        or_(
+            col(Supplier.registry_next_check_at).is_(None),
+            col(Supplier.registry_next_check_at) <= now,
+        ),
+    )
+    recheck = and_(
+        col(Supplier.registry_status) == SupplierRegistryStatus.VERIFIED.value,
+        col(Supplier.registry_next_check_at) <= now,
+    )
+    with Session(engine) as session:
+        due = session.exec(select(Supplier).where(or_(fresh, recheck)).limit(100)).all()
+        for supplier in due:
+            try:
+                registry.refresh_supplier(supplier)
+            except registry.RegistryUnavailableError:
+                registry.schedule_retry(supplier)
+            except ValueError:
+                logger.exception("registry lookup for %s", supplier.id)
+            session.add(supplier)
+        session.commit()
+
+
+@app.periodic(cron="10 3 * * *")
+@app.task(name="adis_reliability", queue="maintenance")
+def adis_reliability_job(timestamp: int) -> None:
+    """Nightly ADIS sweep: unreliable-payer flag + published accounts.
+
+    Informational only (never gates the export), so a service problem is
+    logged and left for the next pass.
+    """
+    if not settings.REGISTRY_ENABLED:
+        return
+    logger.info("adis_reliability pass @ %s", timestamp)
+    with Session(engine) as session:
+        payers = session.exec(
+            select(Supplier).where(
+                col(Supplier.dic).is_not(None),
+                col(Supplier.registry_status) == SupplierRegistryStatus.VERIFIED.value,
+            )
+        ).all()
+        by_dic = {s.dic.upper(): s for s in payers if s.dic}
+        for start in range(0, len(by_dic), adis.MAX_BATCH):
+            chunk = list(by_dic)[start : start + adis.MAX_BATCH]
+            try:
+                results = adis.check_batch(chunk)
+            except adis.AdisUnavailableError:
+                logger.warning("ADIS unreachable, deferring to next pass")
+                return
+            for dic, entry in results.items():
+                supplier = by_dic.get(dic)
+                if supplier is None:
+                    continue
+                supplier.unreliable_payer = bool(entry.get("unreliable"))
+                published = entry.get("published_accounts") or []
+                data = supplier.registry_data or {}
+                data["published_accounts"] = published
+                supplier.registry_data = data
+                session.add(supplier)
+        session.commit()
 
 
 # housekeeping (once a day): forget finished queue jobs older than a week so
@@ -253,3 +369,37 @@ def enqueue_email(*, email_to: str, subject: str, html_content: str) -> None:
     deliver_email_task.defer(
         email_to=email_to, subject=subject, html_content=html_content
     )
+
+
+def enqueue_supplier_check(session: Session, supplier: Supplier) -> None:
+    """Start the first registry verification of a freshly registered supplier.
+
+    Called from the parse pipeline, so in inline mode the check already runs
+    off the request path; in queue mode it is a transactional defer deduped
+    by the supplier id.
+    """
+    if not settings.REGISTRY_ENABLED or not (supplier.ico or supplier.dic):
+        return
+    if settings.QUEUE_MODE == "inline":
+        try:
+            registry.refresh_supplier(supplier)
+        except registry.RegistryUnavailableError, ValueError:
+            registry.schedule_retry(supplier)
+        session.add(supplier)
+        return
+    _ensure_open()
+    task_kwargs: dict[str, str] = {"supplier_id": str(supplier.id)}
+    if correlation_id.get(None):
+        task_kwargs["request_id"] = str(correlation_id.get())
+    try:
+        check_supplier_registry_task.configure(
+            queueing_lock=str(supplier.id),
+            connection=_session_psycopg_connection(session),
+        ).defer(**task_kwargs)
+    except exceptions.AlreadyEnqueued:
+        logger.info("supplier %s is already queued for a registry check", supplier.id)
+    except psycopg.Error:
+        logger.exception("could not defer the registry check on the session")
+        check_supplier_registry_task.configure(queueing_lock=str(supplier.id)).defer(
+            **task_kwargs
+        )

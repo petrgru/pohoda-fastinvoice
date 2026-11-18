@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, exists, func, or_
 from sqlalchemy import text as sa_text
 from sqlmodel import Session, col, select
 
@@ -29,6 +29,8 @@ from app.models import (
     InvoiceStatsBucket,
     ParsedInvoice,
     RecipientCompany,
+    Supplier,
+    SupplierRegistryStatus,
     User,
     UserBasic,
     as_vat_items,
@@ -40,7 +42,7 @@ from app.models import (
     vat_items_to_json,
     vat_rate_warnings,
 )
-from app.services import parsing, recipient_access, search_index, storage
+from app.services import parsing, recipient_access, registry, search_index, storage
 
 logger = logging.getLogger(__name__)
 
@@ -322,6 +324,14 @@ def queue_reasons(
         reasons.append(f"queue.reason.export_failed|{detail}")
     elif state is InvoiceState.PROCESSING:
         reasons.append("queue.reason.export_in_progress")
+    if state in (InvoiceState.READY_FOR_EXPORT, InvoiceState.EXPORT_FAILED):
+        from app.services import account_integrity
+
+        blocked = registry.export_block_reason(
+            account_integrity.find_supplier(session, invoice)
+        )
+        if blocked:
+            reasons.append(f"queue.reason.{blocked}")
     return reasons
 
 
@@ -548,6 +558,30 @@ def release_export_claim(session: Session, invoice: Invoice, *, reason: str) -> 
     return change_state(session, invoice, InvoiceState.READY_FOR_EXPORT, note=reason)
 
 
+def _supplier_registry_blocked() -> Any:
+    """EXISTS clause: invoice whose supplier is not registry-confirmed yet.
+
+    PENDING/NOT_FOUND hold the export until ARES/VIES confirm the subject;
+    a confirmed insolvency blocks unless an admin released it manually.
+    Invoices without a registry row (or a NOT_CHECKABLE supplier) pass.
+    """
+    return exists().where(
+        col(Invoice.supplier_ico) == Supplier.ico,
+        or_(
+            col(Supplier.registry_status).in_(
+                [
+                    SupplierRegistryStatus.PENDING.value,
+                    SupplierRegistryStatus.NOT_FOUND.value,
+                ]
+            ),
+            and_(
+                col(Supplier.in_insolvency) == True,  # noqa: E712
+                col(Supplier.export_confirmed_manually) == False,  # noqa: E712
+            ),
+        ),
+    )
+
+
 def claim_export_batch(
     session: Session, company_id: uuid.UUID, *, limit: int
 ) -> list[Invoice]:
@@ -555,7 +589,8 @@ def claim_export_batch(
 
     Waits are ``ready_for_export`` or failed ones below the retry limit; the
     rows are locked with SKIP LOCKED so a second connector instance simply
-    picks different records.
+    picks different records. Invoices of suppliers still waiting for registry
+    confirmation (or in an unresolved insolvency) stay behind the gate.
     """
     rows = session.exec(
         select(Invoice)
@@ -568,6 +603,7 @@ def claim_export_batch(
                     Invoice.export_retry_count < EXPORT_MAX_RETRIES,
                 ),
             ),
+            ~_supplier_registry_blocked(),
         )
         .order_by(col(Invoice.created_at).asc())
         .limit(limit)
@@ -795,6 +831,7 @@ def to_public(session: Session, invoice: Invoice) -> InvoicePublic:
             if ok
         )
         public.supplier_confirmed_accounts = confirmed or None
+    public.export_block_reason = registry.export_block_reason(supplier)
     return public
 
 

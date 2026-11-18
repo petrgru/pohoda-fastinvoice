@@ -7,7 +7,7 @@ from app.services import vat
 
 @pytest.fixture(autouse=True)
 def _vat_state(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(settings, "VATCOMPLY_ENABLED", True)
+    monkeypatch.setattr(settings, "REGISTRY_ENABLED", True)
     vat._cache.clear()
     yield
     vat._cache.clear()
@@ -85,8 +85,19 @@ def test_lookup_is_cached(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_disabled_service_skips_check(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(settings, "VATCOMPLY_ENABLED", False)
-    monkeypatch.setattr(settings, "VATCOMPLY_BASE_URL", "http://unreachable.invalid")
+    monkeypatch.setattr(settings, "REGISTRY_ENABLED", False)
     result = vat.check_dic_or_raise("CZ06846904")  # no HTTP, no error
+    assert result is not None
+    assert result.unavailable
+
+
+def test_domestic_dic_without_prefix_is_not_checked(monkeypatch: pytest.MonkeyPatch):
+    """A bare CZ DIČ belongs to a non-payer - VIES has nothing to say about it."""
+
+    def no_http(dic: str) -> dict:
+        raise AssertionError("must not call VIES")
+
+    monkeypatch.setattr(vat, "_fetch", no_http)
+    result = vat.check_dic_or_raise("06846904")
     assert result is not None
     assert result.unavailable

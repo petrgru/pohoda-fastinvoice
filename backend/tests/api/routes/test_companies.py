@@ -87,7 +87,7 @@ def test_create_company_dic_invalid_blocks(
     client: TestClient, superuser_token_headers: dict[str, str], monkeypatch
 ):
     """VIES reports the DIČ as invalid -> saving is blocked (no mod-11)."""
-    monkeypatch.setattr(settings, "VATCOMPLY_ENABLED", True)
+    monkeypatch.setattr(settings, "REGISTRY_ENABLED", True)
     monkeypatch.setattr(vat, "_fetch", lambda dic: {"valid": False})
     response = client.post(
         API,
@@ -107,7 +107,7 @@ def test_create_company_dic_service_unreachable_fails_open(
     client: TestClient, superuser_token_headers: dict[str, str], monkeypatch
 ):
     """When VatComply/VIES is down the company can still be saved."""
-    monkeypatch.setattr(settings, "VATCOMPLY_ENABLED", True)
+    monkeypatch.setattr(settings, "REGISTRY_ENABLED", True)
 
     def boom(dic: str) -> dict:
         raise httpx.ConnectError("vatcomply down")
@@ -286,7 +286,7 @@ def test_delete_free_company(
 def test_vat_info_returns_registry_data(
     client: TestClient, superuser_token_headers: dict[str, str], monkeypatch
 ):
-    monkeypatch.setattr(settings, "VATCOMPLY_ENABLED", True)
+    monkeypatch.setattr(settings, "REGISTRY_ENABLED", True)
     monkeypatch.setattr(
         vat,
         "_fetch",
@@ -310,7 +310,7 @@ def test_vat_info_returns_registry_data(
 def test_vat_info_invalid_and_unreachable(
     client: TestClient, superuser_token_headers: dict[str, str], monkeypatch
 ):
-    monkeypatch.setattr(settings, "VATCOMPLY_ENABLED", True)
+    monkeypatch.setattr(settings, "REGISTRY_ENABLED", True)
     # bad format is answered without calling the service
     response = client.get(
         f"{API}/vat-info", params={"dic": "nope"}, headers=superuser_token_headers
@@ -341,7 +341,7 @@ def test_company_vat_update_blocks_invalid(
     from tests.utils.invoice import create_company
 
     company = create_company(db, name="Vat Update")
-    monkeypatch.setattr(settings, "VATCOMPLY_ENABLED", True)
+    monkeypatch.setattr(settings, "REGISTRY_ENABLED", True)
     monkeypatch.setattr(vat, "_fetch", lambda dic: {"valid": False})
     response = client.put(
         f"{API}/{company.id}",

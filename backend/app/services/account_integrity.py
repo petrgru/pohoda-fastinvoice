@@ -134,7 +134,11 @@ def upsert_from_invoice(session: Session, invoice: Invoice) -> Supplier | None:
     confirmed accounts). Returns the supplier, or None for account-less rows."""
     if not invoice.supplier_name and not invoice.supplier_ico:
         return None
+    from app import tasks as task_queue  # lazy: the queue imports this module's callers
+    from app.services import registry as registry_service
+
     supplier = find_supplier(session, invoice)
+    created = supplier is None
     if supplier is None:
         supplier = Supplier(
             name=(invoice.supplier_name or invoice.supplier_ico or "?")[:255],
@@ -150,6 +154,9 @@ def upsert_from_invoice(session: Session, invoice: Invoice) -> Supplier | None:
             supplier.name = invoice.supplier_name
         if invoice.supplier_dic and not supplier.dic:
             supplier.dic = invoice.supplier_dic
+    if created:
+        supplier.registry_status = registry_service.initial_status(supplier)
+        task_queue.enqueue_supplier_check(session, supplier)
     rows = _known_rows(supplier)
     seen = {
         k for row in rows for k in (_normalize(row.account), _normalize(row.iban)) if k

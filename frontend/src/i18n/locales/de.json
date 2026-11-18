@@ -222,7 +222,22 @@
     "docNumber": "Beleg",
     "total": "Gesamt",
     "createdAt": "Import",
-    "saved": "Lieferant gespeichert"
+    "saved": "Lieferant gespeichert",
+    "colRegistry": "Register",
+    "registryPending": "Prüfung ausstehend",
+    "registryVerified": "Geprüft",
+    "registryNotFound": "Unbekannte IČO",
+    "registryIcoInvalid": "Ungültige IČO",
+    "insolvency": "Insolvent",
+    "unreliablePayer": "Unzuverlässiger Zahler",
+    "registrySection": "Registerprüfung",
+    "registryChecked": "Zuletzt geprüft",
+    "registryNever": "Noch nicht geprüft",
+    "registryNameSuggestion": "Register führt: {name}, {address}",
+    "recheck": "Erneut prüfen",
+    "rechecked": "Prüfung gestartet",
+    "confirmExport": "Import trotz Insolvenz erlauben",
+    "exportConfirmed": "Import manuell erlaubt"
   },
   "companyFields": {
     "name": "Name",
@@ -275,7 +290,10 @@
       "missingDueDate": "Fälligkeitsdatum fehlt",
       "missingTaxDate": "Datum der Steuerleistung fehlt",
       "export_in_progress": "Der Buchungs-Konnektor sendet gerade den Beleg",
-      "duplicate": "Gleiche Belegnummer existiert bereits: {{detail}}"
+      "duplicate": "Gleiche Belegnummer existiert bereits: {{detail}}",
+      "registry_pending": "Lieferant wartet auf Prüfung im Firmenregister",
+      "registry_not_found": "IČO des Lieferanten im Register nicht gefunden",
+      "supplier_insolvency": "Lieferant ist insolvent – Import manuell freigeben"
     },
     "colAction": "Aktionen"
   },

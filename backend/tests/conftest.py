@@ -109,7 +109,7 @@ def db() -> Generator[Session]:
 @pytest.fixture(autouse=True)
 def no_live_vat_service(monkeypatch: pytest.MonkeyPatch):
     """Never hit VatComply from tests; specific tests re-enable it with a fake."""
-    monkeypatch.setattr(settings, "VATCOMPLY_ENABLED", False)
+    monkeypatch.setattr(settings, "REGISTRY_ENABLED", False)
     monkeypatch.setattr(settings, "MEILISEARCH_ENABLED", False)
     # DEVELOP=yes in the developer's .env must not change test semantics
     monkeypatch.setattr(settings, "DEVELOP", False)

@@ -115,17 +115,27 @@ class Settings(BaseSettings):
     # When unset, /api/v1/export/* endpoints return 503.
     EXPORT_API_KEY: str | None = None
 
-    # --- VAT validation (VatComply / VIES) -----------------------------------
-    # DIČ is validated against VatComply (no API key needed, 2 req/s limit).
-    # When the service is unreachable the check is skipped (fail-open).
+    # --- Supplier registry verification (ARES / ADIS / VIES) -------------------
+    # ARES REST (MF ČR, JSON, no key) is the primary source of existence +
+    # insolvency/VAT flags; ADIS (MOJE daně SOAP) adds unreliable-payer status
+    # and published bank accounts; VIES validates cross-border EU VAT IDs.
+    # All checks run from the worker queue; when a registry is unreachable the
+    # supplier stays PENDING (export is held), never fails open silently.
+    REGISTRY_ENABLED: bool = True
     # `DEVELOP=yes` in .env enables destructive development-only features
     DEVELOP: bool = False
     MEILISEARCH_ENABLED: bool = True
     MEILISEARCH_URL: str = "http://localhost:7700"
     MEILISEARCH_MASTER_KEY: str = ""
-    VATCOMPLY_BASE_URL: str = "https://api.vatcomply.com"
-    VATCOMPLY_ENABLED: bool = True
-    VATCOMPLY_TIMEOUT_SECONDS: float = 5.0
+    ARES_REST_URL: str = "https://wwwinfo.mfcr.cz/ares/ares_rest.html.f?json=1"
+    ADIS_WSDL_URL: str = "https://adisapi.mfcr.cz/ADIS/services/RDPHService?wsdl"
+    VIES_SOAP_URL: str = (
+        "https://ec.europa.eu/taxation_customs/vies/services/checkVatService"
+    )
+    REGISTRY_TIMEOUT_SECONDS: float = 8.0
+    # polite gap between outbound registry calls (ARES: 500 req/min/IP)
+    REGISTRY_MIN_INTERVAL_SECONDS: float = 0.25
+    INSOLVENCY_RECHECK_DAYS: int = 7
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

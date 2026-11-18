@@ -133,6 +133,41 @@ index layers (Postgres vectors + Meilisearch documents) after (re)installing
 with `cd backend && uv run python scripts/reindex_search.py`. Set
 `MEILISEARCH_ENABLED=false` to disable the engine entirely.
 
+## Supplier Registry Verification (ARES / ADIS / VIES)
+
+Every supplier that appears on an imported invoice is verified against the
+official Czech registries so a fraudulent bank account (the classic
+"account-switch" invoice fraud) is caught before anything reaches the
+accounting system. The logic lives in `app/services/registry.py`
+(`app/services/adis.py` for the bulk VAT-register pass).
+
+- **ARES REST** (Ministry of Finance, JSON, no API key) is the primary source:
+  existence, registered name/office, VAT-payer flag and the insolvency-register
+  marker. The 8-digit IČO is mod-11 checked *before* querying, and calls run
+  single-threaded through the `maintenance` queue with a polite gap (the
+  service allows 500 queries/min/IP).
+- **ADIS** (MOJE daně SOAP, up to 100 DIČ per request) runs nightly: it flags
+  unreliable VAT payers and stores the officially published bank accounts,
+  which the UI compares against what we parsed from invoices.
+- **VIES** (official EC SOAP) validates cross-border EU VAT numbers and backs
+  the DIČ check performed when saving a company (`app/services/vat.py`).
+
+Verification is asynchronous and gates the export: a supplier starts as
+`pending` and `claim_export_batch` withholds its invoices until ARES/VIES
+confirm the subject (`verified`) or the user releases them manually. A
+registry that is unreachable or rate-limited is *not* a failure - the supplier
+stays `pending` and retries on a backoff ladder (10 min → 1 h → 6 h → 24 h);
+`not_found` re-checks daily. A confirmed insolvency blocks the export until an
+company admin clicks "Allow import despite insolvency". Suppliers without IČO
+or EU DIČ are `not_checkable` and never block anything.
+
+Set `REGISTRY_ENABLED=false` to turn the whole feature off (e.g. in tests or
+behind a network that cannot reach the registries); everything then starts
+`not_checkable`. The public registries are not reachable from every network -
+run `cd backend && uv run python scripts/check_registries.py [ICO]` on the
+deployment host to probe ARES/VIES/ADIS and calibrate the tolerant parsers
+against real payloads (it prints the raw answers alongside the parsed record).
+
 ## Company Roles and API Keys
 
 A company means the **document recipient** – the user's own company that

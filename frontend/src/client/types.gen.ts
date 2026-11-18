@@ -907,6 +907,10 @@ export type InvoicePublic = {
      */
     export_claimed_at?: string | null;
     /**
+     * Export Block Reason
+     */
+    export_block_reason?: string | null;
+    /**
      * Account Matches Document
      */
     account_matches_document?: boolean | null;
@@ -1558,6 +1562,38 @@ export type SupplierPublic = {
      * Last Invoice At
      */
     last_invoice_at?: string | null;
+    /**
+     * Registry Status
+     */
+    registry_status?: string;
+    /**
+     * In Insolvency
+     */
+    in_insolvency?: boolean;
+    /**
+     * Insolvency Info
+     */
+    insolvency_info?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Unreliable Payer
+     */
+    unreliable_payer?: boolean;
+    /**
+     * Registry Data
+     */
+    registry_data?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Registry Checked At
+     */
+    registry_checked_at?: string | null;
+    /**
+     * Export Confirmed Manually
+     */
+    export_confirmed_manually?: boolean;
 };
 
 /**
@@ -3776,6 +3812,66 @@ export type suppliersUpdateSupplierResponses = {
 };
 
 export type suppliersUpdateSupplierResponse = suppliersUpdateSupplierResponses[keyof suppliersUpdateSupplierResponses];
+
+export type suppliersRecheckRegistryData = {
+    body?: never;
+    path: {
+        /**
+         * Supplier Id
+         */
+        supplier_id: string;
+    };
+    query?: never;
+    url: '/api/v1/suppliers/{supplier_id}/registry-recheck';
+};
+
+export type suppliersRecheckRegistryErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type suppliersRecheckRegistryError = suppliersRecheckRegistryErrors[keyof suppliersRecheckRegistryErrors];
+
+export type suppliersRecheckRegistryResponses = {
+    /**
+     * Successful Response
+     */
+    200: SupplierPublic;
+};
+
+export type suppliersRecheckRegistryResponse = suppliersRecheckRegistryResponses[keyof suppliersRecheckRegistryResponses];
+
+export type suppliersConfirmExportData = {
+    body?: never;
+    path: {
+        /**
+         * Supplier Id
+         */
+        supplier_id: string;
+    };
+    query?: never;
+    url: '/api/v1/suppliers/{supplier_id}/confirm-export';
+};
+
+export type suppliersConfirmExportErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type suppliersConfirmExportError = suppliersConfirmExportErrors[keyof suppliersConfirmExportErrors];
+
+export type suppliersConfirmExportResponses = {
+    /**
+     * Successful Response
+     */
+    200: SupplierPublic;
+};
+
+export type suppliersConfirmExportResponse = suppliersConfirmExportResponses[keyof suppliersConfirmExportResponses];
 
 export type suppliersSupplierInvoicesData = {
     body?: never;
