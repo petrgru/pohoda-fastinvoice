@@ -55,6 +55,8 @@ def _ensure_test_database() -> str:
 os.environ["DATABASE_URL"] = _ensure_test_database()
 # startup recovery must not spawn background parsing threads under pytest
 os.environ.setdefault("REPARSE_ON_STARTUP", "false")
+# the queue plumbing runs inline unless a test opts into a real worker
+os.environ.setdefault("QUEUE_MODE", "inline")
 # ---------------------------------------------------------------------------
 
 import pytest  # noqa: E402

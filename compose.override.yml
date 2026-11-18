@@ -74,6 +74,32 @@ services:
       # e2e tests simulate the Pohoda connector against the dev instance
       EXPORT_API_KEY: ${EXPORT_API_KEY:-}
 
+  # on-demand dev worker (docker compose --profile worker up worker-parse);
+  # the API keeps inline mode unless QUEUE_MODE=queue is set in .env
+  worker-parse:
+    profiles: ["worker"]
+    command:
+      - procrastinate
+      - --app
+      - app.tasks.app
+      - worker
+      - --queues
+      - parse,email,maintenance
+      - --concurrency
+      - "2"
+    environment:
+      FASTAPI_ENV: "development"
+      SMTP_HOST: "mailpit"
+      SMTP_PORT: "1025"
+      SMTP_TLS: "false"
+    develop:
+      watch:
+        - path: ./backend
+          action: rebuild
+
+  worker-light:
+    profiles: ["worker"]
+
   mailpit:
     image: axllent/mailpit
     ports:

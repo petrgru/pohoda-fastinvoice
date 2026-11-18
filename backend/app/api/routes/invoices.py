@@ -6,6 +6,7 @@ from fastapi.responses import Response
 from sqlalchemy import ColumnElement, Text, and_, cast, func, or_
 from sqlmodel import col, select
 
+from app import tasks
 from app.api.deps import CurrentUser, SessionDep
 from app.api.routes import companies as companies_route
 from app.core.config import settings
@@ -133,8 +134,7 @@ async def upload_invoice(
         recipient_company_id=recipient_company_id,
     )
     session.add(invoice)
-    session.commit()
-    session.refresh(invoice)
+    session.flush()
     invoice_service.log_audit(
         session,
         "uploaded",
@@ -150,8 +150,11 @@ async def upload_invoice(
             company=auto_company,
             user=current_user,
         )
+    # in queue mode the job INSERT joins this transaction: the invoice, its
+    # audit entries and the parse job become visible atomically
+    tasks.enqueue_invoice_parse(session, invoice.id, background_tasks=background_tasks)
     session.commit()
-    background_tasks.add_task(invoice_service.process_invoice, invoice.id)
+    session.refresh(invoice)
     return invoice_service.to_public(session, invoice)
 
 
@@ -541,7 +544,7 @@ def reparse_invoice(
         invoice_service.reparse(session, invoice)
     except invoice_service.InvalidTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
-    background_tasks.add_task(invoice_service.process_invoice, invoice.id)
+    tasks.enqueue_invoice_parse_detached(invoice.id, background_tasks=background_tasks)
     session.refresh(invoice)
     return invoice_service.to_public(session, invoice)
 

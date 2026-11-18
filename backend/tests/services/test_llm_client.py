@@ -3,6 +3,7 @@
 from typing import Any
 
 import httpx
+import pytest
 
 from app.core.config import settings
 from app.services import parsing
@@ -131,13 +132,16 @@ def test_parse_invoice_text_gives_up_after_two_attempts(monkeypatch):
     assert calls["count"] == 2
 
 
-def test_parse_invoice_text_returns_none_on_http_error(monkeypatch):
+def test_parse_invoice_text_raises_transient_on_http_error(monkeypatch):
     def fail(*args: Any, **kwargs: Any) -> FakeResponse:
         raise httpx.ConnectError("connection refused")
 
     monkeypatch.setattr(httpx, "post", fail)
 
-    assert parsing.parse_invoice_text("Text dokladu") is None
+    # an unreachable LLM is retryable - the queue re-queues instead of
+    # silently downgrading the document to the rules-only result
+    with pytest.raises(parsing.TransientLLMError):
+        parsing.parse_invoice_text("Text dokladu")
 
 
 def test_parse_invoice_text_empty_input_skips_call(monkeypatch):

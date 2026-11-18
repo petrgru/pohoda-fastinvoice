@@ -10,10 +10,10 @@ from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.core import security
 from app.core.config import settings
 from app.models import Message, NewPassword, Token, UserPublic, UserUpdate
+from app.tasks import enqueue_email
 from app.utils import (
     generate_password_reset_token,
     generate_reset_password_email,
-    send_email,
     verify_password_reset_token,
 )
 
@@ -64,7 +64,7 @@ def recover_password(email: str, session: SessionDep) -> Message:
         email_data = generate_reset_password_email(
             email_to=user.email, email=email, token=password_reset_token
         )
-        send_email(
+        enqueue_email(
             email_to=user.email,
             subject=email_data.subject,
             html_content=email_data.html_content,

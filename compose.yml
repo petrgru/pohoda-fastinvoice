@@ -1,3 +1,21 @@
+# Shared environment for the API and the queue workers (same app image)
+x-app-env: &app-env
+  PROJECT_NAME: ${PROJECT_NAME:?Variable not set}
+  SECRET_KEY: ${SECRET_KEY:?Variable not set}
+  FIRST_SUPERUSER: ${FIRST_SUPERUSER:?Variable not set}
+  FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:?Variable not set}
+  SMTP_HOST: ${SMTP_HOST}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  EMAILS_FROM_EMAIL: ${EMAILS_FROM_EMAIL}
+  DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  MEILISEARCH_ENABLED: ${MEILISEARCH_ENABLED:-true}
+  MEILISEARCH_URL: http://meilisearch:7700
+  MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-fastinvoice-meili-dev-key}
+  # deploy.yml flips the API to "queue"; workers always require the queue
+  QUEUE_MODE: ${QUEUE_MODE:-inline}
+
 services:
 
   proxy:
@@ -65,20 +83,7 @@ services:
       db:
         condition: service_healthy
         restart: true
-    environment:
-      PROJECT_NAME: ${PROJECT_NAME:?Variable not set}
-      SECRET_KEY: ${SECRET_KEY:?Variable not set}
-      FIRST_SUPERUSER: ${FIRST_SUPERUSER:?Variable not set}
-      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:?Variable not set}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      EMAILS_FROM_EMAIL: ${EMAILS_FROM_EMAIL}
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
-      SENTRY_DSN: ${SENTRY_DSN:-}
-      MEILISEARCH_ENABLED: ${MEILISEARCH_ENABLED:-true}
-      MEILISEARCH_URL: http://meilisearch:7700
-      MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-fastinvoice-meili-dev-key}
+    environment: *app-env
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
@@ -99,6 +104,56 @@ services:
       # Route HTTP traffic for this domain
       - traefik.http.routers.backend-http.rule=Host(`${DOMAIN:-localhost}`)
       - traefik.http.routers.backend-http.entrypoints=http
+
+  worker-parse:
+    image: backend:latest
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    # long LLM calls live here, not in the API workers - keep the queue small
+    # so the single LLM backend is never hit by more than two parses
+    command:
+      - procrastinate
+      - --app
+      - app.tasks.app
+      - worker
+      - --queues
+      - parse
+      - --concurrency
+      - "2"
+    environment: *app-env
+    healthcheck:
+      test: ["CMD", "procrastinate", "--app", "app.tasks.app", "healthchecks"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  worker-light:
+    image: backend:latest
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    # emails + the periodic maintenance passes (stale export claims, stalled
+    # parsing rescue) kept separate so a long parse never delays either
+    command:
+      - procrastinate
+      - --app
+      - app.tasks.app
+      - worker
+      - --queues
+      - email,maintenance
+      - --concurrency
+      - "4"
+    environment: *app-env
+    healthcheck:
+      test: ["CMD", "procrastinate", "--app", "app.tasks.app", "healthchecks"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   app-db-data:

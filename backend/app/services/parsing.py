@@ -277,6 +277,21 @@ def call_llm(
     return str(response.json()["choices"][0]["message"]["content"])
 
 
+class TransientLLMError(RuntimeError):
+    """The LLM was unreachable or kept erroring; a later attempt may succeed.
+
+    Raised instead of silently falling back to rules-only parsing so the task
+    queue can retry with backoff; the final failure surfaces the document for
+    manual review.
+    """
+
+
+def _is_transient(exc: Exception) -> bool:
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code == 429 or exc.response.status_code >= 500
+    return isinstance(exc, httpx.TransportError)
+
+
 def parse_invoice_text(text: str, image: bytes | None = None) -> ParsedInvoice | None:
     """Extract invoice fields: PDF-text rules first, LLM for what they miss."""
     if not text.strip() and image is None:
@@ -296,6 +311,7 @@ def parse_invoice_text(text: str, image: bytes | None = None) -> ParsedInvoice |
     # token), while plain JSON prompting degrades gracefully – try each first
     # depending on how much text the document carries.
     order = [True, False] if len(text) <= 4000 else [False, True]
+    transport_error: Exception | None = None
     for attempt, structured in enumerate(order):
         try:
             content = call_llm(
@@ -305,6 +321,8 @@ def parse_invoice_text(text: str, image: bytes | None = None) -> ParsedInvoice |
                 timeout=settings.LLM_STRUCTURED_TIMEOUT_SECONDS if structured else None,
             )
         except (httpx.HTTPError, KeyError) as exc:
+            if _is_transient(exc):
+                transport_error = exc
             logger.warning(
                 "LLM attempt %d (%s) failed: %s",
                 attempt + 1,
@@ -324,7 +342,11 @@ def parse_invoice_text(text: str, image: bytes | None = None) -> ParsedInvoice |
         if rules is not None:
             parsed = _merge_missing(parsed, rules)
         return parsed
-    # the LLM is unreachable or kept failing – return whatever the rules found
+    if transport_error is not None:
+        raise TransientLLMError(
+            f"LLM unreachable: {transport_error}"
+        ) from transport_error
+    # the LLM kept answering unparsable content - fall back to rule extraction
     return rules
 
 

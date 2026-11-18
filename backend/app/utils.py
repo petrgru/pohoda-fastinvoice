@@ -12,7 +12,6 @@ from jwt.exceptions import InvalidTokenError
 from app.core import security
 from app.core.config import settings
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -54,7 +53,8 @@ def send_email(
     if settings.SMTP_PASSWORD:
         smtp_options["password"] = settings.SMTP_PASSWORD
     response = message.send(to=email_to, smtp=smtp_options)
-    logger.info(f"send email result: {response}")
+    # the response body only echoes the SMTP status - no PII in the log
+    logger.info("email sent: smtp status %s", getattr(response, "status", "?"))
 
 
 def generate_test_email(email_to: str) -> EmailData:

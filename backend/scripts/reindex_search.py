@@ -11,15 +11,16 @@ import logging
 from sqlmodel import Session, select
 
 from app.core.db import engine
+from app.core.logging import configure_logging
 from app.models import Invoice
 from app.services import invoices as invoice_service
 from app.services import search_index
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    configure_logging()
     with Session(engine) as session:
         ids = session.exec(select(Invoice.id)).all()
         # rebuild the Meilisearch index from scratch first: drops ghost

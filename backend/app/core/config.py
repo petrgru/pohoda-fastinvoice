@@ -95,6 +95,19 @@ class Settings(BaseSettings):
     REPARSE_ON_STARTUP: bool = True
     # how often the watchdog re-queues invoices whose connector claim timed out
     EXPORT_WATCHDOG_SECONDS: int = 300
+
+    # --- Task queue (Procrastinate on top of PostgreSQL) ----------------------
+    # "inline" runs tasks inside the API process (development, tests);
+    # "queue" defers them to procrastinate worker processes (production).
+    QUEUE_MODE: Literal["inline", "queue"] = "inline"
+    PARSE_MAX_RETRIES: int = 3
+    EMAIL_MAX_RETRIES: int = 5
+
+    # --- Logging --------------------------------------------------------------
+    # production renders JSON on stdout (FASTAPI_ENV != "development");
+    # LOG_JSON=True/False overrides that heuristic explicitly
+    LOG_LEVEL: str = "INFO"
+    LOG_JSON: bool | None = None
     # Path to tesseract binary for OCR of scans/photos; None disables OCR.
     TESSERACT_PATH: str | None = "tesseract"
 

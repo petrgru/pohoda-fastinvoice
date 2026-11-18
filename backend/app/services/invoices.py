@@ -905,7 +905,11 @@ def process_invoice(invoice_id: uuid.UUID) -> None:
                 else:
                     image = data
             parsed = parsing.parse_invoice_text(text, image=image)
-        except Exception as exc:  # parsing backend unavailable, broken file, ...
+        except parsing.TransientLLMError:
+            # LLM unreachable - keep the document in PARSING and let the
+            # queue retry; inline mode handles this in tasks.run_parse_inline
+            raise
+        except Exception as exc:  # broken file, OCR failure, ...
             parsed = None
             invoice.parse_error = str(exc)[:255]
         else:
@@ -946,6 +950,24 @@ def process_invoice(invoice_id: uuid.UUID) -> None:
         )
         session.commit()
         update_search_vector(session, invoice)
+
+
+def fail_transient_parse(invoice_id: uuid.UUID, reason: str) -> None:
+    """Terminal handling for a document whose parsing kept failing on I/O.
+
+    Used when no retry will come anymore (inline mode, or the queue gave up):
+    instead of leaving the document in PARSING forever it goes to the review
+    screen with the failure recorded.
+    """
+    with Session(engine) as session:
+        invoice = session.get(Invoice, invoice_id)
+        if invoice is None or InvoiceState(invoice.state) is not InvoiceState.PARSING:
+            return
+        invoice.parse_error = f"LLM se nepodařilo dokončit: {reason}"[:255]
+        change_state(
+            session, invoice, InvoiceState.NEEDS_REVIEW, note=invoice.parse_error
+        )
+        session.commit()
 
 
 def reparse(session: Session, invoice: Invoice) -> Invoice:
@@ -993,8 +1015,11 @@ def recover_stuck_invoices() -> int:
 
 
 def _process_after_restart(invoice_ids: list[uuid.UUID]) -> None:
+    # lazy import: app.tasks imports this module
+    from app import tasks
+
     for invoice_id in invoice_ids:
         try:
-            process_invoice(invoice_id)  # opens its own session
+            tasks.enqueue_invoice_parse_detached(invoice_id)
         except Exception:
             logger.exception("Invoice %s: recovery parsing failed", invoice_id)

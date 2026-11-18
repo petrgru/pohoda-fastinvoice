@@ -42,6 +42,31 @@ Mailpit: <http://localhost:8025>
 
 The frontend development server uses the backend at `http://localhost:8000`, as configured in `frontend/.env`.
 
+### Background Tasks and the Queue
+
+Invoice parsing, email delivery and periodic maintenance run through
+[Procrastinate](https://procrastinate.readthedocs.io/) on top of the project's
+own PostgreSQL database - no broker is involved.
+
+By default (`QUEUE_MODE=inline`) everything runs synchronously inside the API
+process, which is what development and the test suite use. To exercise the
+production behaviour, set `QUEUE_MODE=queue` in `.env` and start a worker:
+
+```bash
+# from the backend directory (after scripts/prestart.sh applied the queue schema)
+uv run procrastinate --app app.tasks.app worker --queues parse,email,maintenance
+```
+
+With Docker Compose the same worker is available as `worker-parse`:
+
+```bash
+docker compose --profile worker up worker-parse
+```
+
+The deploy file always runs two workers (`worker-parse` for LLM parsing with
+limited concurrency, `worker-light` for emails and periodic jobs) and sets
+`QUEUE_MODE=queue` for the API.
+
 ### Frontend Served by FastAPI
 
 Build the frontend from the `frontend` directory:
@@ -51,6 +76,18 @@ bun run build
 ```
 
 The build is written to `backend/app/frontend` and served by FastAPI at <http://localhost:8000>. Rebuild the frontend after making frontend changes. To rebuild automatically on every save while working against the FastAPI-served app, run `bun run dev:served` from the `frontend` directory instead of a manual rebuild (stop it with Ctrl+C when done).
+
+### Logging
+
+All processes (API, workers, scripts) configure logging through
+`app/core/logging.py`: one structured line per event on stdout, no log files
+in the container. Development renders human-readable console lines; production
+renders JSON (whichever `FASTAPI_ENV != "development"`, overridable with
+`LOG_JSON`, level with `LOG_LEVEL`). Every request gets an `X-Request-ID`
+correlation id that is also carried into queued tasks; `user_id`, `invoice_id`
+and sensitive keys (passwords, tokens, e-mails) are handled centrally. The
+planned Loki/Alloy collection on the cluster is described in
+[docs/logging-loki.md](docs/logging-loki.md).
 
 ## Full Stack with Docker Compose
 

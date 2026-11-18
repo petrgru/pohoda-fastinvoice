@@ -179,11 +179,10 @@ def add_admin_member(session: Session, user: User, company: RecipientCompany) ->
 
 def invite_user(session: Session, email: str) -> User:
     """Create a user with a random password and send them the setup link."""
-    from app import crud
+    from app import crud, tasks
     from app.utils import (
         generate_company_invite_email,
         generate_password_reset_token,
-        send_email,
     )
 
     created = crud.create_user(
@@ -195,7 +194,7 @@ def invite_user(session: Session, email: str) -> User:
         email_data = generate_company_invite_email(
             email_to=email, email=email, token=token
         )
-        send_email(
+        tasks.enqueue_email(
             email_to=email,
             subject=email_data.subject,
             html_content=email_data.html_content,

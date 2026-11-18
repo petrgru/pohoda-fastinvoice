@@ -2,11 +2,12 @@ from collections.abc import Generator
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlmodel import Session
+from structlog.contextvars import bind_contextvars
 
 from app.core import security
 from app.core.config import settings
@@ -27,7 +28,7 @@ SessionDep = Annotated[Session, Depends(get_db)]
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
 
 
-def get_current_user(session: SessionDep, token: TokenDep) -> User:
+def get_current_user(request: Request, session: SessionDep, token: TokenDep) -> User:
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
@@ -47,6 +48,12 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
         )
+    # every later log line inside this request carries the acting user;
+    # sync dependencies run in a threadpool, so contextvars bound here do not
+    # travel back to the outer task - mirror the value into the shared scope
+    # for RequestLogMiddleware (see app.core.logging)
+    bind_contextvars(user_id=str(user.id))
+    request.scope.setdefault("state", {})["user_id"] = str(user.id)
     return user
 
 
