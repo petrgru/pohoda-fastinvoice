@@ -32,14 +32,17 @@ test.describe("Invoice workflow", () => {
   })
 
   test("invoices page is accessible", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: "Doklady" })).toBeVisible()
+    // exact: the empty-state heading ("Žádné doklady") contains the title
+    await expect(
+      page.getByRole("heading", { name: "Doklady", exact: true }),
+    ).toBeVisible()
     await expect(page.getByTestId("upload-invoice-button")).toBeVisible()
   })
 
   test("companies page is accessible", async ({ page }) => {
     await page.goto("/companies")
     await expect(
-      page.getByRole("heading", { name: "Naše firmy" }),
+      page.getByRole("heading", { name: "Naše firmy", exact: true }),
     ).toBeVisible()
     await expect(page.getByTestId("add-company-button")).toBeVisible()
   })
@@ -47,7 +50,7 @@ test.describe("Invoice workflow", () => {
   test("queue page is accessible", async ({ page }) => {
     await page.goto("/queue")
     await expect(
-      page.getByRole("heading", { name: "Fronta úloh" }),
+      page.getByRole("heading", { name: "Fronta úloh", exact: true }),
     ).toBeVisible()
   })
 
@@ -1060,13 +1063,19 @@ test.describe("Invoice workflow", () => {
   }) => {
     await page.getByTestId("language-button").click()
     await page.getByTestId("language-en").click()
-    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "Documents", exact: true }),
+    ).toBeVisible()
     // the choice is persisted, so it survives a reload
     await page.reload()
-    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "Documents", exact: true }),
+    ).toBeVisible()
     await page.getByTestId("language-button").click()
     await page.getByTestId("language-de").click()
-    await expect(page.getByRole("heading", { name: "Belege" })).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "Belege", exact: true }),
+    ).toBeVisible()
   })
 
   test("invoice columns saved in the profile persist", async ({ page }) => {

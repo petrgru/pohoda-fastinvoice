@@ -33,7 +33,7 @@ test.describe("Supplier registry", () => {
     await page.goto("/invoices")
     await page.getByRole("link", { name: "Dodavatelé" }).click()
     await expect(
-      page.getByRole("heading", { name: "Dodavatelé" }),
+      page.getByRole("heading", { name: "Dodavatelé", exact: true }),
     ).toBeVisible()
 
     // the imported invoice registered its vendor (filter by IČO – the LLM
