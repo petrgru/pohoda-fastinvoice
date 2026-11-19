@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 from app.models import (
@@ -140,14 +141,30 @@ def upsert_from_invoice(session: Session, invoice: Invoice) -> Supplier | None:
     supplier = find_supplier(session, invoice)
     created = supplier is None
     if supplier is None:
-        supplier = Supplier(
-            name=(invoice.supplier_name or invoice.supplier_ico or "?")[:255],
-            ico=invoice.supplier_ico or None,
-            dic=invoice.supplier_dic,
-            bank_accounts=[],
-        )
-        session.add(supplier)
-        session.flush()
+        try:
+            # add inside the savepoint: entering begin_nested() flushes
+            # everything already pending, and the losing INSERT must fail
+            # under the savepoint, not during its setup
+            with session.begin_nested():
+                candidate = Supplier(
+                    name=(invoice.supplier_name or invoice.supplier_ico or "?")[:255],
+                    ico=invoice.supplier_ico or None,
+                    dic=invoice.supplier_dic,
+                    bank_accounts=[],
+                )
+                session.add(candidate)
+                session.flush()
+        except IntegrityError:
+            # a concurrent parse won the race - adopt its row instead. The
+            # savepoint rollback dropped the candidate; re-read with
+            # autoflush off so nothing can flush it again.
+            with session.no_autoflush:
+                supplier = find_supplier(session, invoice)
+            if supplier is None:
+                raise
+            created = False
+        else:
+            supplier = candidate
     else:
         supplier.updated_at = get_datetime_utc()
         if invoice.supplier_name and supplier.name != invoice.supplier_name:
