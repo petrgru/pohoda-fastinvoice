@@ -4,7 +4,9 @@ set -e
 set -x
 
 cd backend
-FASTAPI_ENV=development uv run python -c "import app.main; import json; print(json.dumps(app.main.app.openapi()))" > ../openapi.json
+# write the file from inside Python: importing app.main logs to stdout
+# (structlog) and a plain `>` redirect would smear it into the JSON
+FASTAPI_ENV=development uv run python -c "import app.main, json; open('../openapi.json', 'w').write(json.dumps(app.main.app.openapi()))"
 cd ..
 mv openapi.json frontend/
 bun run --filter frontend generate-client

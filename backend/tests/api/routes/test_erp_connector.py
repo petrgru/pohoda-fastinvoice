@@ -2,11 +2,12 @@
 
 from datetime import timedelta
 from typing import Any
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.models import Invoice, InvoiceState, get_datetime_utc
+from app.models import Invoice, InvoiceState, Supplier, get_datetime_utc
 from app.services import invoices as invoice_service
 from app.services.erp_connector import derive_variable_symbol
 from tests.utils.invoice import create_company, create_invoice
@@ -310,4 +311,53 @@ def test_heartbeat_and_connection_status(
     assert body["mode"] == "mserver"
     assert body["queue_size"] == 7
     assert body["last_seen_at"]
+    db.rollback()
+
+
+def test_supplier_items_and_unknown_rows(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Suppliers carry their remote id back; unknown rows fail one by one."""
+    key, _company = make_api_key(client, superuser_token_headers, db)
+    supplier = Supplier(name="ERP Dodavatel a.s.", ico="76846905")
+    db.add(supplier)
+    db.commit()
+    db.refresh(supplier)
+
+    outcomes = report(
+        client,
+        key,
+        [
+            {
+                "entity_type": "supplier",
+                "local_id": str(supplier.id),
+                "status": "synced",
+                "remote_id": "SUP00000001",
+            },
+            {
+                "entity_type": "supplier",
+                "local_id": str(uuid4()),
+                "status": "error",
+                "error_message": "není v SQL",
+            },
+            {
+                "entity_type": "invoice",
+                "local_id": str(uuid4()),
+                "status": "synced",
+                "remote_id": "X",
+                "remote_number": "1",
+            },
+        ],
+    )["applied"]
+
+    assert outcomes[0]["ok"] is True
+    assert outcomes[1]["ok"] is False
+    assert "dodavatel nenalezen" in outcomes[1]["detail"]
+    assert outcomes[2]["ok"] is False
+    assert "doklad nenalezen" in outcomes[2]["detail"]
+
+    db.expire_all()
+    stored = db.get(Supplier, supplier.id)
+    assert stored is not None
+    assert stored.erp_remote_id == "SUP00000001"
     db.rollback()

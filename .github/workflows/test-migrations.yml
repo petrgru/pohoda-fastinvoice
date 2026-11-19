@@ -45,20 +45,21 @@ jobs:
         with:
           version: "latest-known"
       - name: Upgrade to head
-        run: uv run --project backend alembic -c backend/alembic.ini upgrade head
+        run: uv run alembic upgrade head
+        working-directory: backend
       - name: Round-trip every migration (downgrade then upgrade)
         run: |
           set -e
-          alembic="uv run --project backend alembic -c backend/alembic.ini"
           count=0
           # walk down to base one revision at a time
-          while $alembic current 2>/dev/null | grep -q .; do
+          while uv run alembic current 2>/dev/null | grep -q .; do
             count=$((count+1))
-            $alembic downgrade -1
+            uv run alembic downgrade -1
           done
           echo "Downgraded $count revision(s) one by one"
           # walk back up one revision at a time
-          until $alembic current 2>/dev/null | grep -q "(head)"; do
-            $alembic upgrade +1
+          until uv run alembic current 2>/dev/null | grep -q "(head)"; do
+            uv run alembic upgrade +1
           done
-          $alembic current
+          uv run alembic current
+        working-directory: backend

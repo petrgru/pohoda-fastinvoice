@@ -279,3 +279,27 @@ def test_confirm_export_needs_admin_of_a_receiving_company(
     )
     assert response.status_code == 200
     assert response.json()["export_confirmed_manually"] is True
+
+
+def test_supplier_invoices_lists_matching_documents(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+):
+    """The dialog's invoice tab: documents matched by the supplier's IČO."""
+    supplier = _supplier(db)
+    invoice = create_invoice(db, supplier_ico=supplier.ico, supplier_name=supplier.name)
+    create_invoice(db, supplier_ico="99999999", supplier_name="Nekdo jiny")
+
+    response = client.get(
+        f"{API}/{supplier.id}/invoices", headers=superuser_token_headers
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["count"] == 1
+    assert body["data"][0]["id"] == str(invoice.id)
+
+
+def test_supplier_invoices_unknown_supplier_404(
+    client: TestClient, superuser_token_headers: dict[str, str]
+):
+    response = client.get(f"{API}/{uuid4()}/invoices", headers=superuser_token_headers)
+    assert response.status_code == 404
