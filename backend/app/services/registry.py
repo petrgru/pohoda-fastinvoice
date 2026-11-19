@@ -38,11 +38,16 @@ from app.models import (
 
 logger = logging.getLogger(__name__)
 
-#: exponential retry ladder when a registry is unreachable (capped at 24 h)
-_BACKOFF_STEPS = [timedelta(minutes=10), timedelta(hours=1), timedelta(hours=6)]
-#: a "not found" answer is re-tried daily - cheap insurance against registry
-#: outages that answer 404 while being broken
-_NOT_FOUND_RETRY = timedelta(hours=24)
+
+def _backoff_ladder() -> list[timedelta]:
+    """Configurable retry ladder (seconds -> timedelta)."""
+    return [timedelta(seconds=s) for s in settings.REGISTRY_BACKOFF_STEPS]
+
+
+def _not_found_retry() -> timedelta:
+    """Re-probe interval when the registry answered 404 (hours -> timedelta)."""
+    return timedelta(hours=settings.REGISTRY_NOT_FOUND_RETRY_HOURS)
+
 
 _last_call_at = 0.0
 
@@ -78,12 +83,17 @@ def ico_checksum_ok(ico: str | None) -> bool:
 
 
 def next_backoff(attempts: int) -> timedelta:
-    """Retry delay after `attempts` failed/unknown outcomes (10 m, 1 h, 6 h, 24 h)."""
+    """Retry delay after `attempts` failed/unknown outcomes (capped at 24 h).
+
+    Reads the ladder from ``settings.REGISTRY_BACKOFF_STEPS`` so tests can
+    monkeypatch it; defaults are 10m, 1h, 6h.
+    """
     if not attempts:
         return timedelta(0)
-    if attempts > len(_BACKOFF_STEPS):
+    ladder = _backoff_ladder()
+    if attempts > len(ladder):
         return timedelta(hours=24)
-    return _BACKOFF_STEPS[attempts - 1]
+    return ladder[attempts - 1]
 
 
 def export_block_reason(supplier: Supplier | None) -> str | None:
@@ -346,7 +356,7 @@ def mark_not_found(supplier: Supplier) -> None:
     supplier.registry_status = SupplierRegistryStatus.NOT_FOUND.value
     supplier.registry_check_attempts += 1
     supplier.registry_checked_at = now
-    supplier.registry_next_check_at = now + _NOT_FOUND_RETRY
+    supplier.registry_next_check_at = now + _not_found_retry()
     supplier.updated_at = now
 
 

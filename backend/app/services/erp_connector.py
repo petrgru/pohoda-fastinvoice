@@ -110,7 +110,9 @@ def build_batch(
     return batch
 
 
-def _apply_invoice_result(session: Session, invoice: Invoice, item: ErpSyncItem):
+def _apply_invoice_result(
+    session: Session, invoice: Invoice, item: ErpSyncItem
+) -> tuple[bool, str | None]:
     state = InvoiceState(invoice.state)
     if item.status == "synced":
         if not item.remote_number:
@@ -151,9 +153,9 @@ def _apply_invoice_result(session: Session, invoice: Invoice, item: ErpSyncItem)
 
 def apply_results(
     session: Session, company: RecipientCompany, items: list[ErpSyncItem]
-):
+) -> list[tuple[ErpSyncItem, bool, str | None]]:
     """Apply one connector result per item; a failure never stops the batch."""
-    outcomes = []
+    outcomes: list[tuple[ErpSyncItem, bool, str | None]] = []
     for item in items:
         if item.entity_type == "supplier":
             supplier = session.get(Supplier, item.local_id)

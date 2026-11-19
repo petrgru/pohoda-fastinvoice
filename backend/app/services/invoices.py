@@ -597,10 +597,10 @@ def claim_export_batch(
         .where(
             Invoice.recipient_company_id == company_id,
             or_(
-                Invoice.state == InvoiceState.READY_FOR_EXPORT.value,
+                col(Invoice.state) == InvoiceState.READY_FOR_EXPORT.value,
                 and_(
-                    Invoice.state == InvoiceState.EXPORT_FAILED.value,
-                    Invoice.export_retry_count < EXPORT_MAX_RETRIES,
+                    col(Invoice.state) == InvoiceState.EXPORT_FAILED.value,
+                    col(Invoice.export_retry_count) < EXPORT_MAX_RETRIES,
                 ),
             ),
             ~_supplier_registry_blocked(),
@@ -777,9 +777,11 @@ def to_public(session: Session, invoice: Invoice) -> InvoicePublic:
             state=other.state,
             created_at=other.created_at,
             recipient_company_name=(
-                session.get(RecipientCompany, other.recipient_company_id).name
+                company.name
                 if other.recipient_company_id
-                and session.get(RecipientCompany, other.recipient_company_id)
+                and (
+                    company := session.get(RecipientCompany, other.recipient_company_id)
+                )
                 else None
             ),
             approved=InvoiceState(other.state) in DUPLICATE_BLOCKING_STATES,
@@ -981,6 +983,8 @@ def process_invoice(invoice_id: uuid.UUID) -> None:
             logger.exception("Invoice %s: storing the parse result failed", invoice_id)
             session.rollback()
             invoice = session.get(Invoice, invoice_id)
+            if invoice is None:  # the row was deleted while we parsed
+                return
             invoice.parse_error = f"Chyba při ukládání výsledku parsování: {exc}"[:255]
         change_state(
             session, invoice, InvoiceState.NEEDS_REVIEW, note=invoice.parse_error

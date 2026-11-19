@@ -136,6 +136,10 @@ class Settings(BaseSettings):
     # polite gap between outbound registry calls (ARES: 500 req/min/IP)
     REGISTRY_MIN_INTERVAL_SECONDS: float = 0.25
     INSOLVENCY_RECHECK_DAYS: int = 7
+    # retry ladder (seconds) for unreachable registries; default 10m, 1h, 6h
+    REGISTRY_BACKOFF_STEPS: list[int] = [600, 3600, 21600]
+    # how often to re-probe a registry that answered 404 (hours)
+    REGISTRY_NOT_FOUND_RETRY_HOURS: int = 24
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

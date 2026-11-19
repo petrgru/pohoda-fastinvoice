@@ -1,4 +1,5 @@
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, cast
@@ -52,7 +53,7 @@ if settings.SENTRY_DSN and settings.FASTAPI_ENV != "development":
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # documents whose parsing was cut off by a restart would otherwise wait
     # in the queue forever - pick them back up before serving the first
     # request; in queue mode this only re-enqueues, the periodic jobs
