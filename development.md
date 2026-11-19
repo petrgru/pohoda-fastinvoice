@@ -298,7 +298,8 @@ same on every machine. Documents that are intentionally incomplete (e.g. a
 seller without identity) take the LLM path: locally they are parsed by the
 cluster from `.env`, in CI `LLM_BASE_URL` points at a port that refuses
 connections, so the transient-failure path to the review screen is exercised
-instead of hanging. Specs whose subject *is* model parsing (unlabelled
-identities, raster camera/scanner captures) or that upload real samples from
-the gitignored `test_data/` skip themselves on CI or when the sample is
-missing - locally with the cluster up, every spec runs.
+instead of hanging. Specs whose subject *is* model parsing skip themselves on
+CI or when a prerequisite is missing: the raster camera/scanner captures need
+a vision-capable model (a text-only endpoint answers them with garbage), the
+recipient-mismatch document needs any model at all, and two specs upload real
+samples from the gitignored `test_data/`.
