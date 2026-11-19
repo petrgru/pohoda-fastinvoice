@@ -223,6 +223,15 @@ The tracked `.env` file contains local development defaults, passwords, and othe
 
 Do not store deployment secrets in `.env`. Configure them as described in the [FastAPI Cloud deployment guide](./deployment.md) or the [Docker Compose deployment guide](./deployment-docker-compose.md).
 
+## Deploying on k3s
+
+For a LAN k3s cluster the stack ships as plain manifests in `k8s/` plus
+management scripts in `scripts/k3s/` (build, apply, status, logs, rollback,
+backup/restore, smoke, teardown). Migrations run as the backend
+deployment's initContainer, so `deploy.sh` doubles as the migration step.
+See [k8s/README.md](k8s/README.md) for the compose-to-k3s mapping and the
+day-2 operations table.
+
 ## Pre-commit Hooks and Code Linting
 
 The project uses [prek](https://prek.j178.dev/), a modern alternative to [pre-commit](https://pre-commit.com/), for code linting and formatting.

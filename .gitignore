@@ -13,3 +13,7 @@ backend/storage/
 
 # Build artifacts
 *.tsbuildinfo
+
+# k3s deployment
+k8s/k3s.env
+k8s/backups/

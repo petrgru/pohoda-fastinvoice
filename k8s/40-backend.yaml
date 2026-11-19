@@ -1,0 +1,161 @@
+# The API and the queue workers share one image (backend:latest). Migrations
+# are an initContainer, so the schema is current before the app serves traffic.
+# Env comes wholesale from the fastinvoice-env secret (see 10-env.sh).
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 2 # stateless; SSE/parse state lives in Postgres, so N pods are safe
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      initContainers:
+        - name: migrate
+          image: ${APP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          command: ["bash", "scripts/prestart.sh"]
+          envFrom:
+            - secretRef:
+                name: fastinvoice-env
+      containers:
+        - name: backend
+          image: ${APP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: fastinvoice-env
+          readinessProbe:
+            httpGet:
+              path: /api/v1/utils/health-check/
+              port: 8000
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/utils/health-check/
+              port: 8000
+            periodSeconds: 20
+            initialDelaySeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
+---
+# Parse workers keep the long LLM calls off the API; two slots so the single
+# LLM backend is never hit by more than two parses (mirrors compose.yml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-parse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-parse
+  template:
+    metadata:
+      labels:
+        app: worker-parse
+    spec:
+      containers:
+        - name: worker
+          image: ${APP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          command:
+            - procrastinate
+            - --app
+            - app.tasks.app
+            - worker
+            - --queues
+            - parse
+            - --concurrency
+            - "2"
+          envFrom:
+            - secretRef:
+                name: fastinvoice-env
+          livenessProbe:
+            exec:
+              command:
+                [
+                  "procrastinate",
+                  "--app",
+                  "app.tasks.app",
+                  "healthchecks",
+                ]
+            periodSeconds: 30
+            initialDelaySeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
+---
+# Emails + periodic maintenance (stale export claims, stalled-parse rescue) on
+# their own queues so a long parse never delays them.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-light
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-light
+  template:
+    metadata:
+      labels:
+        app: worker-light
+    spec:
+      containers:
+        - name: worker
+          image: ${APP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          command:
+            - procrastinate
+            - --app
+            - app.tasks.app
+            - worker
+            - --queues
+            - email,maintenance
+            - --concurrency
+            - "4"
+          envFrom:
+            - secretRef:
+                name: fastinvoice-env
+          livenessProbe:
+            exec:
+              command:
+                [
+                  "procrastinate",
+                  "--app",
+                  "app.tasks.app",
+                  "healthchecks",
+                ]
+            periodSeconds: 30
+            initialDelaySeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 768Mi

@@ -1,0 +1,74 @@
+# Postgres: one replica, persistent with a PVC (k3s ships the local-path
+# provisioner, so no storage class configuration is needed).
+# PG18 stores its versioned data dir under /var/lib/postgresql - mount that,
+# mirroring the compose volume app-db-data.
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  clusterIP: None
+  selector:
+    app: db
+  ports:
+    - port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      securityContext:
+        fsGroup: 999 # the postgres image's uid; lets the PVC group-writable
+      containers:
+        - name: postgres
+          image: postgres:18
+          env:
+            - name: POSTGRES_DB
+              value: app
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fastinvoice-env
+                  key: POSTGRES_PASSWORD
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "app"]
+            periodSeconds: 10
+            timeoutSeconds: 10
+            initialDelaySeconds: 15
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "app"]
+            periodSeconds: 20
+            timeoutSeconds: 10
+            initialDelaySeconds: 60
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

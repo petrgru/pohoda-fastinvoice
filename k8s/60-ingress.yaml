@@ -1,0 +1,23 @@
+# One host, one backend: the app image serves the API, /docs (Swagger UI) and
+# the built SPA from a single port. Traefik is k3s's packaged component, so
+# only the Ingress is needed. For Let's Encrypt switch to the https entrypoint
+# and add the cert resolver annotation from the k3s Traefik add-on docs.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fastinvoice
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${DOMAIN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
