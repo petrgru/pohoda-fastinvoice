@@ -17,11 +17,13 @@ test.describe("Supplier registry", () => {
     test.setTimeout(900_000)
 
     const ico = randomIco()
-    const name = `E2E Dodavatel ${ico}`
+    const name = `E2E Dodavatel ${ico} s.r.o.`
     const invoice = await uploadInvoice([
       "FAKTURA E2E SUPPLIER",
       `Dodavatel: ${name}`,
-      `IČO: ${ico}`,
+      // ASCII spelling: the minimal PDF text layer drops diacritics and the
+      // extractor accepts both
+      `ICO: ${ico}`,
       "Bankovní účet: 123456789/0100",
       "Celkem 1210,00 Kc",
     ])
@@ -81,8 +83,8 @@ test.describe("Supplier registry", () => {
     const ico = randomIco()
     const invoice = await uploadInvoice([
       "FAKTURA E2E TAMPER",
-      `Dodavatel: E2E Tamper ${ico}`,
-      `IČO: ${ico}`,
+      `Dodavatel: E2E Tamper ${ico} s.r.o.`,
+      `ICO: ${ico}`,
       "Bankovní účet: 2401384534/2010",
       "Celkem 1210,00 Kc",
     ])

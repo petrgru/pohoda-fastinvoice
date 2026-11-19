@@ -79,6 +79,11 @@ jobs:
     - run: docker compose run --rm backend bash scripts/prestart.sh
     - name: Run Playwright tests
       run: docker compose run --rm playwright bunx playwright test --fail-on-flaky-tests --trace=retain-on-failure --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+      env:
+        # the self-hosted LLM cluster is not routable from hosted runners;
+        # point the backend at a port that refuses instantly so documents
+        # the rule extractor cannot cover fail fast instead of hanging
+        LLM_BASE_URL: http://127.0.0.1:9/v1
     - run: docker compose down -v --remove-orphans
     - name: Upload blob report to GitHub Actions Artifacts
       if: ${{ !cancelled() }}

@@ -176,16 +176,21 @@ test.describe("Invoice workflow", () => {
     test.slow()
     const sellerIco = "47123788"
     const buyerIco = "27652375"
-    const invoice = await uploadInvoice([
-      `Faktura IDENT${Date.now()}`,
-      "ALFA SHOP s.r.o.",
-      "Na Rohane 886/78, 170 00 Praha 1",
-      "Odběratel: NAKUPUJICI a.s.",
-      `IČ: ${buyerIco}`,
-      `DIČ: CZ${buyerIco}`,
-      `reference ${sellerIco}`,
-      "Celkem 1210,00 Kc",
-    ])
+    const invoice = await uploadInvoice(
+      [
+        `Faktura IDENT${Date.now()}`,
+        "ALFA SHOP s.r.o.",
+        "Na Rohane 886/78, 170 00 Praha 1",
+        "Odběratel: NAKUPUJICI a.s.",
+        `IČ: ${buyerIco}`,
+        `DIČ: CZ${buyerIco}`,
+        `reference ${sellerIco}`,
+        "Celkem 1210,00 Kc",
+      ],
+      // the document carries no usable seller identity – the picker test
+      // asserts exactly that, so the helper must not invent one
+      { supplierIdentity: false },
+    )
     await waitForParsed(invoice.id)
     await page.goto(`/invoices/${invoice.id}`)
 

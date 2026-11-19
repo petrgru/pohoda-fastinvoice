@@ -33,6 +33,32 @@ export const randomIco = (): string => {
   return ico
 }
 
+/** FNV-1a, so the same fixture always synthesizes the same identifiers. */
+const hashText = (s: string): number => {
+  let h = 0xb794f679
+  for (const c of s) {
+    h ^= c.charCodeAt(0)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h >>> 0
+}
+
+/** A mod-11 clean 8-digit IČO derived from the document text. */
+const derivedIco = (s: string): string => {
+  for (let round = 0; round < 8; round++) {
+    const base = String(1_000_000 + (hashText(`${s}#${round}`) % 9_000_000))
+    let total = 0
+    const weights = [8, 7, 6, 5, 4, 3, 2]
+    for (let i = 0; i < 7; i++) total += Number(base[i]) * weights[i]
+    const check = ((-(total % 11) % 11) + 11) % 11
+    if (check < 10) return base + String(check)
+  }
+  return base_fallback(s)
+}
+
+const base_fallback = (s: string): string =>
+  `9${String(hashText(s) % 10_000_000).padStart(7, "0")}0`
+
 export const createCompany = async (
   name: string,
 ): Promise<{ id: string; name: string; ico: string }> => {
@@ -104,6 +130,7 @@ export const makePdfBytes = (lines: string[]): Uint8Array => {
 
 export const uploadInvoice = async (
   lines: string[],
+  options: { supplierIdentity?: boolean } = {},
 ): Promise<{ id: string }> => {
   const form = new FormData()
   const body = [...lines]
@@ -114,6 +141,30 @@ export const uploadInvoice = async (
   }
   if (!/splatn/i.test(body.join("\n"))) {
     body.push("Datum splatnosti: 31.1.2025")
+  }
+  // The rule extractor (app/services/parsing.py) takes over when a number
+  // with a digit, a total and a supplier identity are all present; documents
+  // missing them wait for the LLM instead. CI runners cannot reach the LLM
+  // cluster, so complete fixtures deterministically from the text - identical
+  // lines (duplicate tests) derive identical identifiers and stay duplicates.
+  // `supplierIdentity: false` keeps a document anonymous on purpose.
+  const withIco = options.supplierIdentity ?? true
+  let content = body.join("\n")
+  if (withIco && !/i[cč]\s?o\s*[:.]?\s*\d{8}(?!\d)/i.test(content)) {
+    const icoLine = `ICO: ${derivedIco(content)}` // ASCII: the PDF text layer
+    // drops diacritics and the extractor accepts the unaccented spelling
+    // right below the seller's name, so the extractor attributes it to it
+    const seller = body.findIndex((l) => /dodavatel|prodavaj/i.test(l))
+    if (seller >= 0) body.splice(seller + 1, 0, icoLine)
+    else body.push(icoLine)
+    content = body.join("\n")
+  }
+  if (
+    !/číslo\s+dokladu|var\.?\s*symbol|faktur(?:a|y)\s+(?=[A-Z0-9/-]*\d)[A-Z0-9][A-Z0-9/-]{3,29}/i.test(
+      content,
+    )
+  ) {
+    body.push(`Var.symbol: 2${hashText(content) % 1_000_000_000}`)
   }
   const pdf = makePdfBytes([
     ...body,
