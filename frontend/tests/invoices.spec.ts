@@ -1158,12 +1158,18 @@ test.describe("Invoice workflow", () => {
     const named = await createCompany(`E2E named-${Date.now()}`)
     let invoiceId: string | null = null
     try {
-      const invoice = await uploadInvoice([
-        `Faktura E2EMISMATCH${Date.now()}`,
-        "Dodavatel: Dodavatel Jinde s.r.o.",
-        `Prijemce: ${named.name} ${named.ico} a.s.`,
-        "Celkem 420,00 Kc",
-      ])
+      const invoice = await uploadInvoice(
+        [
+          `Faktura E2EMISMATCH${Date.now()}`,
+          "Dodavatel: Dodavatel Jinde s.r.o.",
+          `Prijemce: ${named.name} ${named.ico} a.s.`,
+          "Celkem 420,00 Kc",
+        ],
+        // the point of the spec is a recipient read from the document by the
+        // model - an invented seller identity would make the rules take over
+        // and the recipient would never be extracted
+        { supplierIdentity: false },
+      )
       invoiceId = invoice.id
       await waitForParsed(invoice.id)
 
