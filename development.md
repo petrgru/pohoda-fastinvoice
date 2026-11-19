@@ -256,3 +256,33 @@ You can also run `prek` manually on all files from the project root:
 ```bash
 uv run prek run --all-files
 ```
+
+## CI/CD Workflows
+
+All workflows live in `.github/workflows/` and run on every push and pull
+request unless noted otherwise.
+
+| Workflow | What it checks |
+|----------|----------------|
+| `test-backend.yml` | `uv lock --check`, pytest against a real Postgres (compose), coverage gate at 90 % |
+| `test-migrations.yml` | every alembic revision downgraded and re-upgraded one by one against a Postgres service container |
+| `playwright.yml` | full docker-compose stack + Playwright E2E, 4 shards, HTML blob report |
+| `pre-commit.yml` | the same `.pre-commit-config.yaml` checks (ruff, mypy, ty, biome, zizmor, client regeneration) |
+| `smokeshow.yml` | coverage trend comment on pull requests |
+| `deploy-docker-compose.yml` | manual (`workflow_dispatch`) self-hosted deploy via `compose.yml` + `compose.deploy.yml` |
+
+The round-trip migration check is the guardrail for schema changes: a
+migration without a working `downgrade()` fails CI. You can reproduce it
+locally (with the `db` container running):
+
+```bash
+cd backend
+uv run alembic downgrade -1 && uv run alembic upgrade +1
+```
+
+Backend API changes must be followed by a client regeneration (the
+`generate-frontend-sdk` pre-commit hook does it for you):
+
+```bash
+bash scripts/generate-client.sh
+```
