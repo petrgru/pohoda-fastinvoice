@@ -286,3 +286,16 @@ Backend API changes must be followed by a client regeneration (the
 ```bash
 bash scripts/generate-client.sh
 ```
+
+### End-to-end tests and the LLM
+
+Upload fixtures (PDFs with a text layer) are parsed by the deterministic
+rule extractor whenever the document carries a number, a total and a
+supplier identity - no LLM needed. The E2E helper
+(`frontend/tests/utils/invoices.ts`) synthesizes any missing piece
+deterministically from the fixture text, so the specs are hermetic and the
+same on every machine. Documents that are intentionally incomplete (e.g. a
+seller without identity) take the LLM path: locally they are parsed by the
+cluster from `.env`, in CI `LLM_BASE_URL` points at a port that refuses
+connections, so the transient-failure path to the review screen is exercised
+instead of hanging.
