@@ -19,4 +19,4 @@ sed -i -E \
   -e "s/^FIRST_SUPERUSER_PASSWORD=.*/FIRST_SUPERUSER_PASSWORD=$(gen)/" \
   "$TARGET"
 
-echo "wrote $TARGET (gitignored) - review DOMAIN, SMTP_* and LLM_* before deploying"
+echo "wrote $TARGET (gitignored) - review FRONTEND_HOST, SMTP_* and LLM_* before deploying"

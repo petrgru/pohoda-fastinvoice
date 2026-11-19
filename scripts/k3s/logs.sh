@@ -6,7 +6,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 component=${1:-backend}
 shift || true
 case "$component" in
-  backend | worker-parse | worker-light | meilisearch | adminer | mailpit) selector="app=$component" ;;
+  backend | worker-parse | worker-light | meilisearch) selector="app=$component" ;;
   db) selector="app=db" ;;
   *) echo "unknown component: $component" >&2 && exit 1 ;;
 esac

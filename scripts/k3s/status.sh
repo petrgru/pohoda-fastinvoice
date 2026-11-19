@@ -20,4 +20,5 @@ done
 $KUBECTL -n "$K3S_NS" rollout status statefulset/db 2>/dev/null || true
 echo
 echo "== endpoints"
-$KUBECTL -n "$K3S_NS" get ingress -o custom-columns='NAME:.metadata.name,HOSTS:.spec.rules[*].host,ADDRESS:.status.loadBalancer.ingress[*].ip'
+$KUBECTL -n "$K3S_NS" get svc backend \
+  -o custom-columns='NAME:.metadata.name,TYPE:.spec.type,EXTERNAL-IP:.status.loadBalancer.ingress[0].ip,NODE-PORT:.spec.ports[*].nodePort'

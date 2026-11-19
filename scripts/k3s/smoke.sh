@@ -22,9 +22,12 @@ token=$(run_curl --fail -X POST "http://backend:8000/api/v1/login/access-token" 
   sed -E 's/.*"access_token":"([^"]+)".*/\1/')
 [[ -n $token && $token != *'{'* ]] && echo "ok"
 
-echo "== ingress routes to the backend (Host: $DOMAIN)"
-$KUBECTL -n "$K3S_NS" run smoke-web --rm -i --restart=Never --image=curlimages/curl:8.10.1 -- \
-  curl -sS --fail -H "Host: $DOMAIN" "http://traefik.kube-system.svc/dashboard/" -o /dev/null ||
-  echo "(dashboard probe skipped - Traefik dashboard may be disabled; ingress is covered by the rollout)"
+echo "== load balancer entrypoint"
+ip=$($KUBECTL -n "$K3S_NS" get svc backend -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+if [[ -n $ip ]]; then
+  run_curl --fail "http://${ip}/api/v1/utils/health-check/" >/dev/null && echo "ok: http://$ip/"
+else
+  echo "servicelb has not assigned the IP yet - re-run once the svc is Ready"
+fi
 
 echo "smoke OK"

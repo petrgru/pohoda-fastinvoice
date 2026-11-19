@@ -26,7 +26,7 @@ APP_IMAGE="${REGISTRY:+${REGISTRY}/}pohoda-fastinvoice:${IMAGE_TAG}"
 # Render a manifest template; only our own placeholders are substituted so
 # $-strings inside the YAML survive untouched.
 render() {
-  envsubst '${K3S_NS} ${APP_IMAGE} ${DOMAIN}' <"$1"
+  envsubst '${K3S_NS} ${APP_IMAGE}' <"$1"
 }
 
 # The whole env file becomes the app secret (the app reads plain env vars),
@@ -35,7 +35,7 @@ render() {
 app_env_file() {
   local tmp
   tmp=$(mktemp)
-  grep -vE '^(K3S_NS|DOMAIN|REGISTRY|IMAGE_TAG)=' "$ENV_FILE" |
+  grep -vE '^(K3S_NS|REGISTRY|IMAGE_TAG)=' "$ENV_FILE" |
     sed -E 's/^([A-Za-z_][A-Za-z0-9_]*)="?([^"]*)"?$/\1=\2/' >"$tmp"
   echo "DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?}@db:5432/app" >>"$tmp"
   echo "$tmp"
@@ -68,12 +68,10 @@ build_image() {
 }
 
 apply_manifests() {
-  local with_extras=${1:-false}
   $KUBECTL apply -f <(render "$ROOT/k8s/00-namespace.yaml")
   sync_secret
-  local files=(20-postgres 40-backend 60-ingress)
+  local files=(20-postgres 40-backend)
   [[ "${MEILISEARCH_ENABLED:-true}" == "true" ]] && files+=(30-meilisearch)
-  $with_extras && files+=(70-extras)
   for f in "${files[@]}"; do
     $KUBECTL -n "$K3S_NS" apply -f <(render "$ROOT/k8s/$f.yaml")
   done

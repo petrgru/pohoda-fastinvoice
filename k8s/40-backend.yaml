@@ -1,15 +1,20 @@
 # The API and the queue workers share one image (backend:latest). Migrations
 # are an initContainer, so the schema is current before the app serves traffic.
-# Env comes wholesale from the fastinvoice-env secret (see 10-env.sh).
+# Env comes wholesale from the fastinvoice-env secret (synced by common.sh).
 apiVersion: v1
 kind: Service
 metadata:
   name: backend
 spec:
+  # exposed directly through k3s's built-in servicelb (KlusterLB) - the node
+  # IP with no Ingress controller, DNS or certificates involved; the app
+  # image serves the SPA, the API and /docs from this one port
+  type: LoadBalancer
   selector:
     app: backend
   ports:
-    - port: 8000
+    - port: 80
+      targetPort: 8000
 ---
 apiVersion: apps/v1
 kind: Deployment
